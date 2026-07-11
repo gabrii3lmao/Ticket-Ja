@@ -3,27 +3,17 @@ services:
     image: postgres:15-alpine
     container_name: meu_postgres
     restart: unless-stopped
+
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: admin@123
       POSTGRES_DB: ticketmaster
+
     ports:
       - "5432:5432"
+
     volumes:
       - postgres_data:/var/lib/postgresql/data
-  api:
-    build: 
-      context: .
-      dockerfile: Dockerfile
-    container_name: ticket_master_api
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    environment:
-      DATABASE_URL: postgresql://postgres:admin@123@db:5432/ticketmaster?schema=public
-    
-    depends_on:
-      - db
 
 volumes:
   postgres_data:
