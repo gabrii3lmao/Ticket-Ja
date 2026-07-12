@@ -36,7 +36,7 @@ export class UserService {
     const existingUser = await this.prisma.user.findUnique({ where: { id } });
 
     if (!existingUser) {
-      throw new NotFoundException('User with this ID Not Found');
+      throw new NotFoundException('User with this ID not found');
     }
 
     return this.prisma.user.delete({ where: { id } });

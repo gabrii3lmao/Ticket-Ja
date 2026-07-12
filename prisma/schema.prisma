@@ -18,4 +18,16 @@ model User {
   passwordHash String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  events       Event[]
+}
+
+model Event {
+  id        String   @id @default(uuid())
+  name      String
+  organizer String
+  artist    String
+  date      DateTime
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 }
