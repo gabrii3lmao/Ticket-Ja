@@ -31,6 +31,12 @@ export class EventController {
     return this.eventService.findOne(id);
   }
 
+  /*
+  Mudar depois para 
+  @GET('/events')
+  assim que o método de login for implementado.
+  Atualmente, isso é uma péssima prática.
+  */
   @Get('user/:userId')
   @HttpCode(HttpStatus.OK)
   getAllByUserId(@Param('userId') userId: string) {

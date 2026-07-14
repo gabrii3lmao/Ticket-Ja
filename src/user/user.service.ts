@@ -6,7 +6,6 @@ import {
 import { PrismaService } from 'src/prisma.service';
 import { User } from 'generated/prisma/client';
 import { CreateUserDto } from './dto/create-user.dto';
-import { NotFoundError } from 'rxjs';
 
 @Injectable()
 export class UserService {
@@ -25,6 +24,7 @@ export class UserService {
   }
 
   async findAll(): Promise<User[]> {
+    this.prisma.
     return this.prisma.user.findMany();
   }
 

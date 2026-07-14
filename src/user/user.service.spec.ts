@@ -22,7 +22,10 @@ describe('UserService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [UserService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        UserService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
     }).compile();
 
     service = module.get<UserService>(UserService);
@@ -35,22 +38,42 @@ describe('UserService', () => {
 
   describe('create', () => {
     it('should create a user when email is not taken', async () => {
-      const dto = { name: 'John', email: 'john@mail.com', passwordHash: '123456' };
-      const createdUser = { id: 'uuid', ...dto, createdAt: new Date(), updatedAt: new Date() };
+      const dto = {
+        name: 'John',
+        email: 'john@mail.com',
+        passwordHash: '123456',
+      };
+      const createdUser = {
+        id: 'uuid',
+        ...dto,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
       prisma.user.findUnique.mockResolvedValue(null);
       prisma.user.create.mockResolvedValue(createdUser);
 
       const result = await service.create(dto);
 
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { email: dto.email } });
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { email: dto.email },
+      });
       expect(prisma.user.create).toHaveBeenCalledWith({ data: dto });
       expect(result).toEqual(createdUser);
     });
 
     it('should throw ConflictException when email already exists', async () => {
-      const dto = { name: 'John', email: 'john@mail.com', passwordHash: '123456' };
-      const existingUser = { id: 'uuid', ...dto, createdAt: new Date(), updatedAt: new Date() };
+      const dto = {
+        name: 'John',
+        email: 'john@mail.com',
+        passwordHash: '123456',
+      };
+      const existingUser = {
+        id: 'uuid',
+        ...dto,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
       prisma.user.findUnique.mockResolvedValue(existingUser);
 
@@ -62,7 +85,14 @@ describe('UserService', () => {
   describe('findAll', () => {
     it('should return all users', async () => {
       const users = [
-        { id: '1', name: 'John', email: 'john@mail.com', passwordHash: '123456', createdAt: new Date(), updatedAt: new Date() },
+        {
+          id: '1',
+          name: 'John',
+          email: 'john@mail.com',
+          passwordHash: '123456',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
       ];
 
       prisma.user.findMany.mockResolvedValue(users);
@@ -76,13 +106,22 @@ describe('UserService', () => {
 
   describe('findByEmail', () => {
     it('should return a user when found', async () => {
-      const user = { id: '1', name: 'John', email: 'john@mail.com', passwordHash: '123456', createdAt: new Date(), updatedAt: new Date() };
+      const user = {
+        id: '1',
+        name: 'John',
+        email: 'john@mail.com',
+        passwordHash: '123456',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
       prisma.user.findUnique.mockResolvedValue(user);
 
       const result = await service.findByEmail('john@mail.com');
 
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { email: 'john@mail.com' } });
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { email: 'john@mail.com' },
+      });
       expect(result).toEqual(user);
     });
 
@@ -97,14 +136,23 @@ describe('UserService', () => {
 
   describe('deleteUser', () => {
     it('should delete and return user when found', async () => {
-      const user = { id: '1', name: 'John', email: 'john@mail.com', passwordHash: '123456', createdAt: new Date(), updatedAt: new Date() };
+      const user = {
+        id: '1',
+        name: 'John',
+        email: 'john@mail.com',
+        passwordHash: '123456',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
       prisma.user.findUnique.mockResolvedValue(user);
       prisma.user.delete.mockResolvedValue(user);
 
       const result = await service.deleteUser('1');
 
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { id: '1' } });
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: '1' },
+      });
       expect(prisma.user.delete).toHaveBeenCalledWith({ where: { id: '1' } });
       expect(result).toEqual(user);
     });
@@ -112,7 +160,9 @@ describe('UserService', () => {
     it('should throw NotFoundException when user not found', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
 
-      await expect(service.deleteUser('nonexistent')).rejects.toThrow(NotFoundException);
+      await expect(service.deleteUser('nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
       expect(prisma.user.delete).not.toHaveBeenCalled();
     });
   });
