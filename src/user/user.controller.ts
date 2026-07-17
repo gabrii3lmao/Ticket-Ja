@@ -4,7 +4,6 @@ import {
   HttpCode,
   HttpStatus,
   Post,
-  Get,
   Delete,
   Param,
 } from '@nestjs/common';
@@ -19,12 +18,6 @@ export class UserController {
   @HttpCode(HttpStatus.CREATED)
   create(@Body() data: CreateUserDto) {
     return this.userService.create(data);
-  }
-
-  @Get('/')
-  @HttpCode(HttpStatus.ACCEPTED)
-  showAll() {
-    return this.userService.findAll();
   }
 
   @Delete(':id')

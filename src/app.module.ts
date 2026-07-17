@@ -6,7 +6,13 @@ import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 
 @Module({
-  imports: [ConfigModule.forRoot(), UserModule, EventModule, HealthModule, AuthModule],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    UserModule,
+    EventModule,
+    HealthModule,
+    AuthModule,
+  ],
   controllers: [],
   providers: [],
 })
