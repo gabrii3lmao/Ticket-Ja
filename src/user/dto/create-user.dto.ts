@@ -11,5 +11,5 @@ export class CreateUserDto {
 
   @IsNotEmpty()
   @Length(6)
-  passwordHash: string; // alterar para Password quando for implementar o hash no Service.
+  password: string; // alterar para Password quando for implementar o hash no Service.
 }

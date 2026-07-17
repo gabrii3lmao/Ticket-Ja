@@ -6,26 +6,26 @@ import {
 import { PrismaService } from 'src/prisma.service';
 import { User } from 'generated/prisma/client';
 import { CreateUserDto } from './dto/create-user.dto';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UserService {
+  private readonly SALT_ROUNDS = 10;
+
   constructor(private prisma: PrismaService) {}
 
-  async create(data: CreateUserDto): Promise<User> {
-    const existingUser = await this.findByEmail(data.email);
+  async create(data: CreateUserDto): Promise<Omit<User, 'passwordHash'>> {
+    await this.ensureEmailIsUnique(data.email);
 
-    if (existingUser) {
-      throw new ConflictException(
-        'An account with this email address already exists.',
-      );
-    }
+    const hashedPassword = await bcrypt.hash(data.password, this.SALT_ROUNDS);
 
-    return this.prisma.user.create({ data });
-  }
+    const newUser = await this.prisma.user.create({
+      data: { ...data, passwordHash: hashedPassword },
+    });
 
-  async findAll(): Promise<User[]> {
-    this.prisma.
-    return this.prisma.user.findMany();
+    Reflect.deleteProperty(newUser, 'passwordHash');
+
+    return newUser;
   }
 
   async findByEmail(email: string): Promise<User | null> {
@@ -40,5 +40,14 @@ export class UserService {
     }
 
     return this.prisma.user.delete({ where: { id } });
+  }
+
+  private async ensureEmailIsUnique(email: string): Promise<void> {
+    const existingUser = await this.findByEmail(email);
+    if (existingUser) {
+      throw new ConflictException(
+        'An account with this email address already exists.',
+      );
+    }
   }
 }
