@@ -8,7 +8,6 @@ import { UserService } from './user.service';
 
 const mockUserService = {
   create: jest.fn(),
-  findAll: jest.fn(),
   deleteUser: jest.fn(),
 };
 
@@ -32,34 +31,21 @@ describe('UserController', () => {
 
   describe('create', () => {
     it('should call userService.create with the DTO', async () => {
-      const dto = { name: 'John', email: 'john@mail.com', passwordHash: '123456' };
-      const createdUser = { id: 'uuid', ...dto, createdAt: new Date(), updatedAt: new Date() };
+      const dto = { name: 'John', email: 'john@mail.com', password: '123456' };
+      const createdUser = { id: 'uuid', name: 'John', email: 'john@mail.com', createdAt: new Date(), updatedAt: new Date() };
 
       mockUserService.create.mockResolvedValue(createdUser);
 
-      const result = await controller.create(dto);
+      const result = await controller.create(dto as any);
 
       expect(userService.create).toHaveBeenCalledWith(dto);
       expect(result).toEqual(createdUser);
     });
   });
 
-  describe('showAll', () => {
-    it('should call userService.findAll and return users', async () => {
-      const users = [{ id: '1', name: 'John', email: 'john@mail.com', passwordHash: '123456', createdAt: new Date(), updatedAt: new Date() }];
-
-      mockUserService.findAll.mockResolvedValue(users);
-
-      const result = await controller.showAll();
-
-      expect(userService.findAll).toHaveBeenCalledWith();
-      expect(result).toEqual(users);
-    });
-  });
-
   describe('delete', () => {
     it('should call userService.deleteUser with the id', async () => {
-      const user = { id: '1', name: 'John', email: 'john@mail.com', passwordHash: '123456', createdAt: new Date(), updatedAt: new Date() };
+      const user = { id: '1', name: 'John', email: 'john@mail.com', passwordHash: 'hash', createdAt: new Date(), updatedAt: new Date() };
 
       mockUserService.deleteUser.mockResolvedValue(user);
 

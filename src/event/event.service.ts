@@ -16,6 +16,10 @@ export class EventService {
     return this.prisma.event.findUnique({ where: { id } });
   }
 
+  async findAll(): Promise<Event[]> {
+    return this.prisma.event.findMany();
+  }
+
   async findManyByUserId(userId: string): Promise<Event[]> {
     return this.prisma.event.findMany({ where: { userId } });
   }
@@ -33,7 +37,6 @@ export class EventService {
     if (!eventExist) {
       throw new NotFoundException('Event with this ID not found');
     }
-    
     return this.prisma.event.delete({ where: { id } });
   }
 }

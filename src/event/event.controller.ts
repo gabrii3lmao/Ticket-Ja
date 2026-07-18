@@ -11,8 +11,9 @@ import {
 } from '@nestjs/common';
 import { EventService } from './event.service';
 import { CreateEventDto } from './dto/create-event.dto';
-import { randomUUID } from 'crypto';
 import { UpdateEventDto } from './dto/update-event.dto';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import { Public } from 'src/auth/decorators/public.decorator';
 
 @Controller('event')
 export class EventController {
@@ -20,26 +21,27 @@ export class EventController {
 
   @Post('')
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() data: CreateEventDto) {
-    const temporaryUserId = randomUUID();
-    return this.eventService.create(data, temporaryUserId);
+  create(@Body() data: CreateEventDto, @CurrentUser() userId: string) {
+    return this.eventService.create(data, userId);
   }
 
+  @Public()
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   getById(@Param('id') id: string) {
     return this.eventService.findOne(id);
   }
 
-  /*
-  Mudar depois para 
-  @GET('/events')
-  assim que o método de login for implementado.
-  Atualmente, isso é uma péssima prática.
-  */
-  @Get('user/:userId')
+  @Public()
+  @Get()
   @HttpCode(HttpStatus.OK)
-  getAllByUserId(@Param('userId') userId: string) {
+  getAll() {
+    return this.eventService.findAll();
+  }
+
+  @Get('')
+  @HttpCode(HttpStatus.OK)
+  getAllByUserId(@CurrentUser() userId: string) {
     return this.eventService.findManyByUserId(userId);
   }
 

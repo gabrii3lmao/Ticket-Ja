@@ -20,7 +20,11 @@ export class UserService {
     const hashedPassword = await bcrypt.hash(data.password, this.SALT_ROUNDS);
 
     const newUser = await this.prisma.user.create({
-      data: { ...data, passwordHash: hashedPassword },
+      data: {
+        name: data.name,
+        email: data.email,
+        passwordHash: hashedPassword,
+      },
     });
 
     Reflect.deleteProperty(newUser, 'passwordHash');
