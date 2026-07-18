@@ -50,6 +50,38 @@ docker compose -f compose.prod.yaml down
 yarn install
 ```
 
+## Database
+
+This project uses **Prisma 7** with **PostgreSQL 15**.
+
+### Migrations
+
+```bash
+# Generate Prisma client
+npx prisma generate
+
+# Apply pending migrations
+npx prisma migrate deploy
+
+# Create a new migration after schema changes
+npx prisma migrate dev --name describe_your_change
+```
+
+### Seed
+
+Populates the database with initial data (admin user + sample events):
+
+```bash
+npx prisma db seed
+```
+
+The seed creates:
+| User | Email | Password |
+|---|---|---|
+| Admin | `admin@email.com` | `123456` |
+
+And two sample events linked to the admin user.
+
 ## Compile and run the project
 
 ```bash
