@@ -6,11 +6,13 @@ import {
   Post,
   Req,
   UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
 import { AuthGuard } from '@nestjs/passport';
 import { RegisterDto } from './dto/register.dto';
+import { SignInDto } from './dto/login.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -24,9 +26,10 @@ export class AuthController {
 
   @Post('signin')
   @Public()
-  @UseGuards(AuthGuard('local'))
   @HttpCode(HttpStatus.OK)
-  signIn(@Req() req: { user: { id: string; email: string } }) {
-    return this.authService.login(req.user);
+  async signIn(@Body() data: SignInDto) {
+    const user = await this.authService.validateUser(data.email, data.password);
+    if (!user) throw new UnauthorizedException('Invalid credentials');
+    return this.authService.login(user);
   }
 }

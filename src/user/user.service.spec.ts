@@ -18,6 +18,9 @@ const mockPrisma = {
     create: jest.fn(),
     delete: jest.fn(),
   },
+  event: {
+    deleteMany: jest.fn(),
+  },
 };
 
 describe('UserService', () => {
@@ -101,11 +104,13 @@ describe('UserService', () => {
       const user = { id: '1', name: 'John', email: 'john@mail.com', passwordHash: 'hash', createdAt: new Date(), updatedAt: new Date() };
 
       mockPrisma.user.findUnique.mockResolvedValue(user);
+      mockPrisma.event.deleteMany.mockResolvedValue({ count: 1 });
       mockPrisma.user.delete.mockResolvedValue(user);
 
       const result = await service.deleteUser('1');
 
       expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({ where: { id: '1' } });
+      expect(mockPrisma.event.deleteMany).toHaveBeenCalledWith({ where: { userId: '1' } });
       expect(mockPrisma.user.delete).toHaveBeenCalledWith({ where: { id: '1' } });
       expect(result).toEqual(user);
     });

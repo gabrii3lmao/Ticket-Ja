@@ -71,19 +71,6 @@ describe('EventService', () => {
     });
   });
 
-  describe('findManyByUserId', () => {
-    it('should return all events for a user', async () => {
-      const events = [{ id: '1', name: 'Show', artist: 'Artist', date: new Date(), organizer: 'Org', userId: 'user-id' }];
-
-      prisma.event.findMany.mockResolvedValue(events);
-
-      const result = await service.findManyByUserId('user-id');
-
-      expect(prisma.event.findMany).toHaveBeenCalledWith({ where: { userId: 'user-id' } });
-      expect(result).toEqual(events);
-    });
-  });
-
   describe('update', () => {
     it('should update and return event when found', async () => {
       const existingEvent = { id: '1', name: 'Show', artist: 'Artist', date: new Date(), organizer: 'Org', userId: 'user-id' };

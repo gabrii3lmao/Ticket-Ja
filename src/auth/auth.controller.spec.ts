@@ -3,12 +3,14 @@ jest.mock('generated/prisma/client', () => ({
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
+import { UnauthorizedException } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 
 const mockAuthService = {
   register: jest.fn(),
   login: jest.fn(),
+  validateUser: jest.fn(),
 };
 
 describe('AuthController', () => {
@@ -44,16 +46,28 @@ describe('AuthController', () => {
   });
 
   describe('signIn', () => {
-    it('should call authService.login with req.user', async () => {
-      const req = { user: { id: 'user-id', email: 'john@mail.com' } };
+    it('should call authService.login when credentials are valid', async () => {
+      const dto = { email: 'john@mail.com', password: '123456' };
+      const user = { id: 'user-id', email: 'john@mail.com' };
       const result = { accessToken: 'token' };
 
+      mockAuthService.validateUser.mockResolvedValue(user);
       mockAuthService.login.mockReturnValue(result);
 
-      const response = await controller.signIn(req as any);
+      const response = await controller.signIn(dto as any);
 
-      expect(authService.login).toHaveBeenCalledWith(req.user);
+      expect(authService.validateUser).toHaveBeenCalledWith(dto.email, dto.password);
+      expect(authService.login).toHaveBeenCalledWith(user);
       expect(response).toEqual(result);
+    });
+
+    it('should throw UnauthorizedException when credentials are invalid', async () => {
+      const dto = { email: 'wrong@mail.com', password: 'wrong' };
+
+      mockAuthService.validateUser.mockResolvedValue(null);
+
+      await expect(controller.signIn(dto as any)).rejects.toThrow(UnauthorizedException);
+      expect(authService.login).not.toHaveBeenCalled();
     });
   });
 });

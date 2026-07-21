@@ -14,6 +14,7 @@ import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
 
 @Controller('event')
 export class EventController {
@@ -21,7 +22,10 @@ export class EventController {
 
   @Post('')
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() data: CreateEventDto, @CurrentUser() userId: string) {
+  create(
+    @Body() data: CreateEventDto,
+    @CurrentUser(ActiveUserPipe) userId: string,
+  ) {
     return this.eventService.create(data, userId);
   }
 
@@ -37,12 +41,6 @@ export class EventController {
   @HttpCode(HttpStatus.OK)
   getAll() {
     return this.eventService.findAll();
-  }
-
-  @Get('')
-  @HttpCode(HttpStatus.OK)
-  getAllByUserId(@CurrentUser() userId: string) {
-    return this.eventService.findManyByUserId(userId);
   }
 
   @Delete(':id')

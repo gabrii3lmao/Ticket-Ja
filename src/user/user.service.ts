@@ -36,13 +36,17 @@ export class UserService {
     return this.prisma.user.findUnique({ where: { email } });
   }
 
+  async findById(id: string): Promise<User | null> {
+    return this.prisma.user.findUnique({ where: { id } });
+  }
+
   async deleteUser(id: string): Promise<User | undefined> {
     const existingUser = await this.prisma.user.findUnique({ where: { id } });
 
     if (!existingUser) {
       throw new NotFoundException('User with this ID not found');
     }
-
+    await this.prisma.event.deleteMany({ where: { userId: id } });
     return this.prisma.user.delete({ where: { id } });
   }
 

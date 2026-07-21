@@ -20,10 +20,6 @@ export class EventService {
     return this.prisma.event.findMany();
   }
 
-  async findManyByUserId(userId: string): Promise<Event[]> {
-    return this.prisma.event.findMany({ where: { userId } });
-  }
-
   async update(id: string, data: UpdateEventDto): Promise<Event> {
     const eventExist = await this.prisma.event.findUnique({ where: { id } });
     if (!eventExist) {

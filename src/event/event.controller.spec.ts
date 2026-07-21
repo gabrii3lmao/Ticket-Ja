@@ -5,6 +5,7 @@ jest.mock('generated/prisma/client', () => ({
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventController } from './event.controller';
 import { EventService } from './event.service';
+import { UserService } from 'src/user/user.service';
 
 const mockEventService = {
   create: jest.fn(),
@@ -15,6 +16,10 @@ const mockEventService = {
   delete: jest.fn(),
 };
 
+const mockUserService = {
+  findById: jest.fn(),
+};
+
 describe('EventController', () => {
   let controller: EventController;
   let eventService: typeof mockEventService;
@@ -22,7 +27,10 @@ describe('EventController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [EventController],
-      providers: [{ provide: EventService, useValue: mockEventService }],
+      providers: [
+        { provide: EventService, useValue: mockEventService },
+        { provide: UserService, useValue: mockUserService },
+      ],
     }).compile();
 
     controller = module.get<EventController>(EventController);
@@ -71,20 +79,6 @@ describe('EventController', () => {
 
       expect(eventService.findOne).toHaveBeenCalledWith('1');
       expect(result).toEqual(event);
-    });
-  });
-
-  describe('getAllByUserId', () => {
-    it('should call eventService.findManyByUserId with userId from CurrentUser', async () => {
-      const events = [{ id: '1', name: 'Show', artist: 'Artist', date: new Date(), organizer: 'Org', userId: 'user-id' }];
-      const userId = 'user-id';
-
-      mockEventService.findManyByUserId.mockResolvedValue(events);
-
-      const result = await controller.getAllByUserId(userId);
-
-      expect(eventService.findManyByUserId).toHaveBeenCalledWith(userId);
-      expect(result).toEqual(events);
     });
   });
 

@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 
 @Controller('user')
 export class UserController {
@@ -20,9 +21,9 @@ export class UserController {
     return this.userService.create(data);
   }
 
-  @Delete(':id')
+  @Delete('')
   @HttpCode(HttpStatus.NO_CONTENT)
-  delete(@Param('id') id: string) {
-    return this.userService.deleteUser(id);
+  delete(@CurrentUser() userId: string) {
+    return this.userService.deleteUser(userId);
   }
 }
