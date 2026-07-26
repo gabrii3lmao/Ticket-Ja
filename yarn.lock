@@ -5185,6 +5185,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"helmet@npm:^8.3.0":
+  version: 8.3.0
+  resolution: "helmet@npm:8.3.0"
+  checksum: 10c0/69f33ca716ed3ce34f1f2f48ce8618846dfa9c89e3a15d6bccefc882541e8b028517448c6b0e7450792fd23e5580bfe6d410d4f22bedc2a94f6b1188817a059a
+  languageName: node
+  linkType: hard
+
 "hono@npm:^4.12.8":
   version: 4.12.29
   resolution: "hono@npm:4.12.29"
@@ -7915,6 +7922,7 @@ __metadata:
     eslint-config-prettier: "npm:^10.0.1"
     eslint-plugin-prettier: "npm:^5.2.2"
     globals: "npm:^17.0.0"
+    helmet: "npm:^8.3.0"
     jest: "npm:^30.0.0"
     passport: "npm:^0.7.0"
     passport-jwt: "npm:^4.0.1"

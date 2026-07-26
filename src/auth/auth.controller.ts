@@ -4,13 +4,10 @@ import {
   HttpCode,
   HttpStatus,
   Post,
-  Req,
-  UseGuards,
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
-import { AuthGuard } from '@nestjs/passport';
 import { RegisterDto } from './dto/register.dto';
 import { SignInDto } from './dto/login.dto';
 

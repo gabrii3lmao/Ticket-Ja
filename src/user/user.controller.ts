@@ -5,7 +5,6 @@ import {
   HttpStatus,
   Post,
   Delete,
-  Param,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -21,7 +20,7 @@ export class UserController {
     return this.userService.create(data);
   }
 
-  @Delete('')
+  @Delete('/')
   @HttpCode(HttpStatus.NO_CONTENT)
   delete(@CurrentUser() userId: string) {
     return this.userService.deleteUser(userId);
