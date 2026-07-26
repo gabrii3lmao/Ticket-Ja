@@ -25,15 +25,16 @@ const mockPrisma = {
 
 describe('UserService', () => {
   let service: UserService;
-  let prisma: typeof mockPrisma;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [UserService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        UserService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
     }).compile();
 
     service = module.get<UserService>(UserService);
-    prisma = module.get(PrismaService);
   });
 
   afterEach(() => {
@@ -61,15 +62,30 @@ describe('UserService', () => {
 
       expect(bcrypt.hash).toHaveBeenCalledWith('123456', 10);
       expect(mockPrisma.user.create).toHaveBeenCalledWith({
-        data: { name: 'John', email: 'john@mail.com', passwordHash: hashedPassword },
+        data: {
+          name: 'John',
+          email: 'john@mail.com',
+          passwordHash: hashedPassword,
+        },
       });
       expect(result).not.toHaveProperty('passwordHash');
       expect(result.id).toBe('uuid');
     });
 
     it('should throw ConflictException when email already exists', async () => {
-      const dto = { name: 'John', email: 'existing@mail.com', password: '123456' };
-      const existingUser = { id: '1', name: 'Existing', email: 'existing@mail.com', passwordHash: 'hash', createdAt: new Date(), updatedAt: new Date() };
+      const dto = {
+        name: 'John',
+        email: 'existing@mail.com',
+        password: '123456',
+      };
+      const existingUser = {
+        id: '1',
+        name: 'Existing',
+        email: 'existing@mail.com',
+        passwordHash: 'hash',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
       mockPrisma.user.findUnique.mockResolvedValue(existingUser);
 
@@ -80,13 +96,22 @@ describe('UserService', () => {
 
   describe('findByEmail', () => {
     it('should return user when found', async () => {
-      const user = { id: '1', name: 'John', email: 'john@mail.com', passwordHash: 'hash', createdAt: new Date(), updatedAt: new Date() };
+      const user = {
+        id: '1',
+        name: 'John',
+        email: 'john@mail.com',
+        passwordHash: 'hash',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
       mockPrisma.user.findUnique.mockResolvedValue(user);
 
       const result = await service.findByEmail('john@mail.com');
 
-      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({ where: { email: 'john@mail.com' } });
+      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+        where: { email: 'john@mail.com' },
+      });
       expect(result).toEqual(user);
     });
 
@@ -99,9 +124,46 @@ describe('UserService', () => {
     });
   });
 
+  describe('findById', () => {
+    it('should return user when found', async () => {
+      const user = {
+        id: '1',
+        name: 'John',
+        email: 'john@mail.com',
+        passwordHash: 'hash',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      mockPrisma.user.findUnique.mockResolvedValue(user);
+
+      const result = await service.findById('1');
+
+      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: '1' },
+      });
+      expect(result).toEqual(user);
+    });
+
+    it('should return null when not found', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+
+      const result = await service.findById('nonexistent');
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe('deleteUser', () => {
     it('should delete and return user when found', async () => {
-      const user = { id: '1', name: 'John', email: 'john@mail.com', passwordHash: 'hash', createdAt: new Date(), updatedAt: new Date() };
+      const user = {
+        id: '1',
+        name: 'John',
+        email: 'john@mail.com',
+        passwordHash: 'hash',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
       mockPrisma.user.findUnique.mockResolvedValue(user);
       mockPrisma.event.deleteMany.mockResolvedValue({ count: 1 });
@@ -109,16 +171,24 @@ describe('UserService', () => {
 
       const result = await service.deleteUser('1');
 
-      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({ where: { id: '1' } });
-      expect(mockPrisma.event.deleteMany).toHaveBeenCalledWith({ where: { userId: '1' } });
-      expect(mockPrisma.user.delete).toHaveBeenCalledWith({ where: { id: '1' } });
+      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: '1' },
+      });
+      expect(mockPrisma.event.deleteMany).toHaveBeenCalledWith({
+        where: { userId: '1' },
+      });
+      expect(mockPrisma.user.delete).toHaveBeenCalledWith({
+        where: { id: '1' },
+      });
       expect(result).toEqual(user);
     });
 
     it('should throw NotFoundException when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      await expect(service.deleteUser('nonexistent')).rejects.toThrow(NotFoundException);
+      await expect(service.deleteUser('nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
       expect(mockPrisma.user.delete).not.toHaveBeenCalled();
     });
   });

@@ -54,9 +54,12 @@ describe('AuthController', () => {
       mockAuthService.validateUser.mockResolvedValue(user);
       mockAuthService.login.mockReturnValue(result);
 
-      const response = await controller.signIn(dto as any);
+      const response = await controller.signIn(dto);
 
-      expect(authService.validateUser).toHaveBeenCalledWith(dto.email, dto.password);
+      expect(authService.validateUser).toHaveBeenCalledWith(
+        dto.email,
+        dto.password,
+      );
       expect(authService.login).toHaveBeenCalledWith(user);
       expect(response).toEqual(result);
     });
@@ -66,7 +69,9 @@ describe('AuthController', () => {
 
       mockAuthService.validateUser.mockResolvedValue(null);
 
-      await expect(controller.signIn(dto as any)).rejects.toThrow(UnauthorizedException);
+      await expect(controller.signIn(dto as any)).rejects.toThrow(
+        UnauthorizedException,
+      );
       expect(authService.login).not.toHaveBeenCalled();
     });
   });

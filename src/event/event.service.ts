@@ -12,8 +12,13 @@ export class EventService {
     return this.prisma.event.create({ data: { ...data, userId: userId } });
   }
 
-  async findOne(id: string): Promise<Event | null> {
-    return this.prisma.event.findUnique({ where: { id } });
+  async findOne(id: string): Promise<Event> {
+    const event = await this.prisma.event.findUnique({ where: { id } });
+    if (!event) {
+      throw new NotFoundException('Event with this ID not found');
+    }
+
+    return event;
   }
 
   async findAll(): Promise<Event[]> {

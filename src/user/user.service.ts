@@ -27,9 +27,10 @@ export class UserService {
       },
     });
 
-    Reflect.deleteProperty(newUser, 'passwordHash');
-
-    return newUser;
+    const safeUser = { ...newUser };
+    //@ts-expect-error: delete is recomended
+    delete safeUser.passwordHash;
+    return safeUser;
   }
 
   async findByEmail(email: string): Promise<User | null> {

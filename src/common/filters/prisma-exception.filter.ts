@@ -1,11 +1,8 @@
-// src/prisma-client-exception/prisma-client-exception.filter.ts
-
-import { ArgumentsHost, Catch, HttpStatus } from '@nestjs/common';
+import { ArgumentsHost, Catch, HttpStatus, Logger } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
 import { Prisma } from 'generated/prisma/client';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 
-// 1. Mapeie apenas os erros que devem retornar algo diferente de 500
 const errorMapping: Record<string, HttpStatus> = {
   P2000: HttpStatus.BAD_REQUEST,
   P2002: HttpStatus.CONFLICT,
@@ -15,23 +12,33 @@ const errorMapping: Record<string, HttpStatus> = {
 
 @Catch(Prisma.PrismaClientKnownRequestError)
 export class PrismaClientExceptionFilter extends BaseExceptionFilter {
+  private readonly logger = new Logger(PrismaClientExceptionFilter.name);
+
   catch(exception: Prisma.PrismaClientKnownRequestError, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
-    
+    const request = ctx.getRequest<Request>();
     const status = errorMapping[exception.code];
 
     if (status) {
       const message = exception.message.replace(/\n/g, '');
 
+      this.logger.warn(
+        `[${request.method}] ${request.url} - Prisma Error ${exception.code}: ${message}`,
+      );
+
       return response.status(status).json({
         statusCode: status,
-        message: message,
-        error: exception.name,
+        timestamp: new Date().toISOString(),
+        path: request.url,
+        error: {
+          code: exception.code,
+          message: message,
+          type: exception.name,
+        },
       });
     }
 
-    // Se o erro não estiver no mapeamento, o NestJS trata como 500 por padrão
     super.catch(exception, host);
   }
 }

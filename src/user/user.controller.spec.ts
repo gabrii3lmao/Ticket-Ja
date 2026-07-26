@@ -32,11 +32,17 @@ describe('UserController', () => {
   describe('create', () => {
     it('should call userService.create with the DTO', async () => {
       const dto = { name: 'John', email: 'john@mail.com', password: '123456' };
-      const createdUser = { id: 'uuid', name: 'John', email: 'john@mail.com', createdAt: new Date(), updatedAt: new Date() };
+      const createdUser = {
+        id: 'uuid',
+        name: 'John',
+        email: 'john@mail.com',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
       mockUserService.create.mockResolvedValue(createdUser);
 
-      const result = await controller.create(dto as any);
+      const result = await controller.create(dto);
 
       expect(userService.create).toHaveBeenCalledWith(dto);
       expect(result).toEqual(createdUser);
@@ -45,7 +51,14 @@ describe('UserController', () => {
 
   describe('delete', () => {
     it('should call userService.deleteUser with the id', async () => {
-      const user = { id: '1', name: 'John', email: 'john@mail.com', passwordHash: 'hash', createdAt: new Date(), updatedAt: new Date() };
+      const user = {
+        id: '1',
+        name: 'John',
+        email: 'john@mail.com',
+        passwordHash: 'hash',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
       mockUserService.deleteUser.mockResolvedValue(user);
 

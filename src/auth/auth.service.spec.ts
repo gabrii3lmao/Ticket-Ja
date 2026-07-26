@@ -46,7 +46,14 @@ describe('AuthService', () => {
 
   describe('validateUser', () => {
     it('should return user when credentials are valid', async () => {
-      const user = { id: '1', name: 'John', email: 'john@mail.com', passwordHash: 'hashed', createdAt: new Date(), updatedAt: new Date() };
+      const user = {
+        id: '1',
+        name: 'John',
+        email: 'john@mail.com',
+        passwordHash: 'hashed',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
       userService.findByEmail.mockResolvedValue(user);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
@@ -61,13 +68,23 @@ describe('AuthService', () => {
     it('should return null when user is not found', async () => {
       userService.findByEmail.mockResolvedValue(null);
 
-      const result = await service.validateUser('nonexistent@mail.com', '123456');
+      const result = await service.validateUser(
+        'nonexistent@mail.com',
+        '123456',
+      );
 
       expect(result).toBeNull();
     });
 
     it('should return null when password is incorrect', async () => {
-      const user = { id: '1', name: 'John', email: 'john@mail.com', passwordHash: 'hashed', createdAt: new Date(), updatedAt: new Date() };
+      const user = {
+        id: '1',
+        name: 'John',
+        email: 'john@mail.com',
+        passwordHash: 'hashed',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
       userService.findByEmail.mockResolvedValue(user);
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
@@ -85,7 +102,10 @@ describe('AuthService', () => {
 
       const result = service.login({ id: 'user-id', email: 'john@mail.com' });
 
-      expect(jwtService.sign).toHaveBeenCalledWith({ sub: 'user-id', email: 'john@mail.com' });
+      expect(jwtService.sign).toHaveBeenCalledWith({
+        sub: 'user-id',
+        email: 'john@mail.com',
+      });
       expect(result).toEqual({ accessToken: token });
     });
   });
@@ -93,7 +113,11 @@ describe('AuthService', () => {
   describe('register', () => {
     it('should create user and return access token', async () => {
       const dto = { name: 'John', email: 'john@mail.com', password: '123456' };
-      const createdUser = { id: 'user-id', name: 'John', email: 'john@mail.com' };
+      const createdUser = {
+        id: 'user-id',
+        name: 'John',
+        email: 'john@mail.com',
+      };
       const token = 'jwt-token';
 
       userService.create.mockResolvedValue(createdUser);
@@ -102,7 +126,10 @@ describe('AuthService', () => {
       const result = await service.register(dto);
 
       expect(userService.create).toHaveBeenCalledWith(dto);
-      expect(jwtService.sign).toHaveBeenCalledWith({ sub: 'user-id', email: 'john@mail.com' });
+      expect(jwtService.sign).toHaveBeenCalledWith({
+        sub: 'user-id',
+        email: 'john@mail.com',
+      });
       expect(result).toEqual({ accessToken: token });
     });
   });

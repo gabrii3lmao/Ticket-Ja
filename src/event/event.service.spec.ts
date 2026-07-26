@@ -79,12 +79,42 @@ describe('EventService', () => {
       expect(result).toEqual(event);
     });
 
-    it('should return null when event not found', async () => {
+    it('should throw NotFoundException when event not found', async () => {
       prisma.event.findUnique.mockResolvedValue(null);
 
-      const result = await service.findOne('nonexistent');
+      await expect(service.findOne('nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
 
-      expect(result).toBeNull();
+  describe('findAll', () => {
+    it('should return all events', async () => {
+      const events = [
+        {
+          id: '1',
+          name: 'Show',
+          artist: 'Artist',
+          date: new Date(),
+          organizer: 'Org',
+          userId: 'user-id',
+        },
+      ];
+
+      prisma.event.findMany.mockResolvedValue(events);
+
+      const result = await service.findAll();
+
+      expect(prisma.event.findMany).toHaveBeenCalledWith();
+      expect(result).toEqual(events);
+    });
+
+    it('should return empty array when no events exist', async () => {
+      prisma.event.findMany.mockResolvedValue([]);
+
+      const result = await service.findAll();
+
+      expect(result).toEqual([]);
     });
   });
 
@@ -122,6 +152,28 @@ describe('EventService', () => {
         service.update('nonexistent', { name: 'Test' }),
       ).rejects.toThrow(NotFoundException);
       expect(prisma.event.update).not.toHaveBeenCalled();
+    });
+
+    it('should pass empty DTO to Prisma (validation layer responsibility)', async () => {
+      const existingEvent = {
+        id: '1',
+        name: 'Show',
+        artist: 'Artist',
+        date: new Date(),
+        organizer: 'Org',
+        userId: 'user-id',
+      };
+
+      prisma.event.findUnique.mockResolvedValue(existingEvent);
+      prisma.event.update.mockResolvedValue(existingEvent);
+
+      const result = await service.update('1', {});
+
+      expect(prisma.event.update).toHaveBeenCalledWith({
+        where: { id: '1' },
+        data: {},
+      });
+      expect(result).toEqual(existingEvent);
     });
   });
 
