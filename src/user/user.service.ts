@@ -47,7 +47,7 @@ export class UserService {
     if (!existingUser) {
       throw new NotFoundException('User with this ID not found');
     }
-    await this.prisma.event.deleteMany({ where: { userId: id } });
+    await this.prisma.event.deleteMany({ where: { organizerId: id } });
     return this.prisma.user.delete({ where: { id } });
   }
 

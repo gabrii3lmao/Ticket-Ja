@@ -3,13 +3,14 @@ import { PrismaService } from 'src/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { Event } from 'generated/prisma/client';
 import { UpdateEventDto } from './dto/update-event.dto';
+import { QueryEventDto } from './dto/query-event.dto';
 
 @Injectable()
 export class EventService {
   constructor(private prisma: PrismaService) {}
 
   async create(data: CreateEventDto, userId: string): Promise<Event> {
-    return this.prisma.event.create({ data: { ...data, userId: userId } });
+    return this.prisma.event.create({ data: { ...data, organizerId: userId } });
   }
 
   async findOne(id: string): Promise<Event> {
@@ -21,8 +22,23 @@ export class EventService {
     return event;
   }
 
-  async findAll(): Promise<Event[]> {
-    return this.prisma.event.findMany();
+  async findAll(paginationDto: QueryEventDto) {
+    const { page = 1, limit = 10 } = paginationDto;
+    const skip = (page - 1) * limit;
+
+    const [events, total] = await this.prisma.$transaction([
+      this.prisma.event.findMany({
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.event.count(),
+    ]);
+
+    return {
+      data: events,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   async update(id: string, data: UpdateEventDto): Promise<Event> {

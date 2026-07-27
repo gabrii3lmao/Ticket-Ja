@@ -8,6 +8,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -21,6 +22,7 @@ import { UpdateEventDto } from './dto/update-event.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { Public } from 'src/auth/decorators/public.decorator';
 import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
+import { QueryEventDto } from './dto/query-event.dto';
 
 @ApiTags('event')
 @Controller('event')
@@ -41,6 +43,15 @@ export class EventController {
   }
 
   @Public()
+  @Get('')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get all events' })
+  @ApiResponse({ status: 200, description: 'Returns list of events' })
+  getAll(@Query() paginationDto: QueryEventDto) {
+    return this.eventService.findAll(paginationDto);
+  }
+
+  @Public()
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get event by ID' })
@@ -48,15 +59,6 @@ export class EventController {
   @ApiResponse({ status: 404, description: 'Event not found' })
   getById(@Param('id') id: string) {
     return this.eventService.findOne(id);
-  }
-
-  @Public()
-  @Get()
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get all events' })
-  @ApiResponse({ status: 200, description: 'Returns list of events' })
-  getAll() {
-    return this.eventService.findAll();
   }
 
   @Delete(':id')
