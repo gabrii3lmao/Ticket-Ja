@@ -22,7 +22,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     /**
     Log based on error severity (5xx = Error, 4xx = Warning)
-     **/
+    **/
     if (status >= 500) {
       this.logger.error(
         `[${request.method}] ${request.url} - Status: ${status} - Error: ${exception.message}`,
