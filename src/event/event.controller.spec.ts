@@ -11,7 +11,6 @@ const mockEventService = {
   create: jest.fn(),
   findOne: jest.fn(),
   findAll: jest.fn(),
-  findManyByUserId: jest.fn(),
   update: jest.fn(),
   delete: jest.fn(),
 };
@@ -19,6 +18,8 @@ const mockEventService = {
 const mockUserService = {
   findById: jest.fn(),
 };
+
+const userId = 'user-uuid';
 
 describe('EventController', () => {
   let controller: EventController;
@@ -44,13 +45,12 @@ describe('EventController', () => {
   describe('create', () => {
     it('should call eventService.create with the DTO and userId from CurrentUser', async () => {
       const dto = {
-        name: 'Show',
-        artist: 'Artist',
-        date: new Date('2026-12-01'),
-        organizer: 'Org',
+        name: 'Rock in Rio',
+        artists: ['Artista'],
+        startDate: new Date('2026-12-01'),
+        venueId: 'venue-uuid',
       };
-      const userId = 'user-id';
-      const createdEvent = { id: 'uuid', ...dto, userId };
+      const createdEvent = { id: 'uuid', ...dto, organizerId: userId };
 
       mockEventService.create.mockResolvedValue(createdEvent);
 
@@ -62,24 +62,26 @@ describe('EventController', () => {
   });
 
   describe('getAll', () => {
-    it('should call eventService.findAll', async () => {
-      const events = [
-        {
-          id: '1',
-          name: 'Show',
-          artist: 'Artist',
-          date: new Date(),
-          organizer: 'Org',
-          userId: 'user-id',
-        },
-      ];
+    it('should call eventService.findAll with pagination query', async () => {
+      const query = { page: 1, limit: 10 };
+      const result = {
+        data: [
+          {
+            id: '1',
+            name: 'Rock in Rio',
+            venue: { id: 'venue-uuid', name: 'Maracanã' },
+            categories: [],
+          },
+        ],
+        meta: { total: 1, page: 1, limit: 10, totalPages: 1 },
+      };
 
-      mockEventService.findAll.mockResolvedValue(events);
+      mockEventService.findAll.mockResolvedValue(result);
 
-      const result = await controller.getAll();
+      const response = await controller.getAll(query);
 
-      expect(eventService.findAll).toHaveBeenCalledWith();
-      expect(result).toEqual(events);
+      expect(eventService.findAll).toHaveBeenCalledWith(query);
+      expect(response).toEqual(result);
     });
   });
 
@@ -87,11 +89,9 @@ describe('EventController', () => {
     it('should call eventService.findOne with the id', async () => {
       const event = {
         id: '1',
-        name: 'Show',
-        artist: 'Artist',
-        date: new Date(),
-        organizer: 'Org',
-        userId: 'user-id',
+        name: 'Rock in Rio',
+        venue: { id: 'venue-uuid', name: 'Maracanã' },
+        categories: [],
       };
 
       mockEventService.findOne.mockResolvedValue(event);
@@ -104,42 +104,28 @@ describe('EventController', () => {
   });
 
   describe('delete', () => {
-    it('should call eventService.delete with the id', async () => {
-      const event = {
-        id: '1',
-        name: 'Show',
-        artist: 'Artist',
-        date: new Date(),
-        organizer: 'Org',
-        userId: 'user-id',
-      };
+    it('should call eventService.delete with the id and userId', async () => {
+      const event = { id: '1', name: 'Rock in Rio' };
 
       mockEventService.delete.mockResolvedValue(event);
 
-      const result = await controller.delete('1');
+      const result = await controller.delete('1', userId);
 
-      expect(eventService.delete).toHaveBeenCalledWith('1');
+      expect(eventService.delete).toHaveBeenCalledWith('1', userId);
       expect(result).toEqual(event);
     });
   });
 
   describe('update', () => {
-    it('should call eventService.update with the id and DTO', async () => {
+    it('should call eventService.update with id, userId, and DTO', async () => {
       const dto = { name: 'Updated Show' };
-      const updatedEvent = {
-        id: '1',
-        name: 'Updated Show',
-        artist: 'Artist',
-        date: new Date(),
-        organizer: 'Org',
-        userId: 'user-id',
-      };
+      const updatedEvent = { id: '1', name: 'Updated Show', organizerId: userId };
 
       mockEventService.update.mockResolvedValue(updatedEvent);
 
-      const result = await controller.update('1', dto);
+      const result = await controller.update('1', dto, userId);
 
-      expect(eventService.update).toHaveBeenCalledWith('1', dto);
+      expect(eventService.update).toHaveBeenCalledWith('1', userId, dto);
       expect(result).toEqual(updatedEvent);
     });
   });

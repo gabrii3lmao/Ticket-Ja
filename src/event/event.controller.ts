@@ -67,8 +67,11 @@ export class EventController {
   @ApiOperation({ summary: 'Delete an event' })
   @ApiResponse({ status: 204, description: 'Event deleted successfully' })
   @ApiResponse({ status: 404, description: 'Event not found' })
-  delete(@Param('id') id: string) {
-    return this.eventService.delete(id);
+  delete(
+    @Param('id') id: string,
+    @CurrentUser(ActiveUserPipe) userId: string,
+  ) {
+    return this.eventService.delete(id, userId);
   }
 
   @Put(':id')
@@ -77,7 +80,11 @@ export class EventController {
   @ApiOperation({ summary: 'Update an event' })
   @ApiResponse({ status: 200, description: 'Event updated successfully' })
   @ApiResponse({ status: 404, description: 'Event not found' })
-  update(@Param('id') id: string, @Body() data: UpdateEventDto) {
-    return this.eventService.update(id, data);
+  update(
+    @Param('id') id: string,
+    @Body() data: UpdateEventDto,
+    @CurrentUser(ActiveUserPipe) userId: string,
+  ) {
+    return this.eventService.update(id, userId, data);
   }
 }

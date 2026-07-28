@@ -3,19 +3,26 @@ jest.mock('generated/prisma/client', () => ({
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { EventService } from './event.service';
 import { PrismaService } from 'src/prisma.service';
 
 const mockPrisma = {
+  $transaction: jest.fn(),
   event: {
     findUnique: jest.fn(),
     findMany: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    count: jest.fn(),
+  },
+  category: {
+    count: jest.fn(),
   },
 };
+
+const userId = 'user-uuid';
 
 describe('EventService', () => {
   let service: EventService;
@@ -40,33 +47,31 @@ describe('EventService', () => {
   describe('create', () => {
     it('should create an event linked to the user', async () => {
       const dto = {
-        name: 'Show',
-        artist: 'Artist',
-        date: new Date('2026-12-01'),
-        organizer: 'Org',
+        name: 'Rock in Rio',
+        artists: ['Artista'],
+        startDate: new Date('2026-12-01'),
+        venueId: 'venue-uuid',
       };
-      const createdEvent = { id: 'uuid', ...dto, userId: 'user-id' };
+      const createdEvent = { id: 'uuid', ...dto, organizerId: userId };
 
       prisma.event.create.mockResolvedValue(createdEvent);
 
-      const result = await service.create(dto, 'user-id');
+      const result = await service.create(dto, userId);
 
       expect(prisma.event.create).toHaveBeenCalledWith({
-        data: { ...dto, userId: 'user-id' },
+        data: { ...dto, organizerId: userId },
       });
       expect(result).toEqual(createdEvent);
     });
   });
 
   describe('findOne', () => {
-    it('should return an event when found', async () => {
+    it('should return an event with venue and categories when found', async () => {
       const event = {
         id: '1',
-        name: 'Show',
-        artist: 'Artist',
-        date: new Date(),
-        organizer: 'Org',
-        userId: 'user-id',
+        name: 'Rock in Rio',
+        venue: { id: 'venue-uuid', name: 'Maracanã' },
+        categories: [{ id: 'cat-uuid', name: 'Pista', price: 250 }],
       };
 
       prisma.event.findUnique.mockResolvedValue(event);
@@ -75,6 +80,7 @@ describe('EventService', () => {
 
       expect(prisma.event.findUnique).toHaveBeenCalledWith({
         where: { id: '1' },
+        include: { venue: true, categories: true },
       });
       expect(result).toEqual(event);
     });
@@ -89,51 +95,52 @@ describe('EventService', () => {
   });
 
   describe('findAll', () => {
-    it('should return all events', async () => {
+    it('should return paginated events', async () => {
       const events = [
         {
           id: '1',
-          name: 'Show',
-          artist: 'Artist',
-          date: new Date(),
-          organizer: 'Org',
-          userId: 'user-id',
+          name: 'Rock in Rio',
+          venue: { id: 'venue-uuid', name: 'Maracanã' },
+          categories: [],
         },
       ];
 
-      prisma.event.findMany.mockResolvedValue(events);
+      prisma.$transaction.mockResolvedValue([events, 1]);
 
-      const result = await service.findAll();
+      const result = await service.findAll({ page: 1, limit: 10 });
 
-      expect(prisma.event.findMany).toHaveBeenCalledWith();
-      expect(result).toEqual(events);
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(result).toEqual({
+        data: events,
+        meta: { total: 1, page: 1, limit: 10, totalPages: 1 },
+      });
     });
 
     it('should return empty array when no events exist', async () => {
-      prisma.event.findMany.mockResolvedValue([]);
+      prisma.$transaction.mockResolvedValue([[], 0]);
 
-      const result = await service.findAll();
+      const result = await service.findAll({ page: 1, limit: 10 });
 
-      expect(result).toEqual([]);
+      expect(result).toEqual({
+        data: [],
+        meta: { total: 0, page: 1, limit: 10, totalPages: 0 },
+      });
     });
   });
 
   describe('update', () => {
-    it('should update and return event when found', async () => {
+    it('should update and return event when user is the organizer', async () => {
       const existingEvent = {
         id: '1',
-        name: 'Show',
-        artist: 'Artist',
-        date: new Date(),
-        organizer: 'Org',
-        userId: 'user-id',
+        name: 'Rock in Rio',
+        organizerId: userId,
       };
       const updateDto = { name: 'Updated Show' };
 
       prisma.event.findUnique.mockResolvedValue(existingEvent);
       prisma.event.update.mockResolvedValue({ ...existingEvent, ...updateDto });
 
-      const result = await service.update('1', updateDto);
+      const result = await service.update('1', userId, updateDto);
 
       expect(prisma.event.findUnique).toHaveBeenCalledWith({
         where: { id: '1' },
@@ -145,56 +152,43 @@ describe('EventService', () => {
       expect(result.name).toBe('Updated Show');
     });
 
-    it('should throw NotFoundException when event not found', async () => {
+    it('should throw NotFoundException when event not found or not owned', async () => {
       prisma.event.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.update('nonexistent', { name: 'Test' }),
+        service.update('nonexistent', userId, { name: 'Test' }),
       ).rejects.toThrow(NotFoundException);
       expect(prisma.event.update).not.toHaveBeenCalled();
     });
 
-    it('should pass empty DTO to Prisma (validation layer responsibility)', async () => {
-      const existingEvent = {
+    it('should throw NotFoundException when user is not the organizer', async () => {
+      prisma.event.findUnique.mockResolvedValue({
         id: '1',
-        name: 'Show',
-        artist: 'Artist',
-        date: new Date(),
-        organizer: 'Org',
-        userId: 'user-id',
-      };
-
-      prisma.event.findUnique.mockResolvedValue(existingEvent);
-      prisma.event.update.mockResolvedValue(existingEvent);
-
-      const result = await service.update('1', {});
-
-      expect(prisma.event.update).toHaveBeenCalledWith({
-        where: { id: '1' },
-        data: {},
+        organizerId: 'other-user',
       });
-      expect(result).toEqual(existingEvent);
+
+      await expect(
+        service.update('1', userId, { name: 'Test' }),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.event.update).not.toHaveBeenCalled();
     });
   });
 
   describe('delete', () => {
-    it('should delete and return event when found', async () => {
-      const event = {
-        id: '1',
-        name: 'Show',
-        artist: 'Artist',
-        date: new Date(),
-        organizer: 'Org',
-        userId: 'user-id',
-      };
+    it('should delete and return event when user is the organizer', async () => {
+      const event = { id: '1', name: 'Rock in Rio', organizerId: userId };
 
       prisma.event.findUnique.mockResolvedValue(event);
+      prisma.category.count.mockResolvedValue(0);
       prisma.event.delete.mockResolvedValue(event);
 
-      const result = await service.delete('1');
+      const result = await service.delete('1', userId);
 
       expect(prisma.event.findUnique).toHaveBeenCalledWith({
         where: { id: '1' },
+      });
+      expect(prisma.category.count).toHaveBeenCalledWith({
+        where: { eventId: '1' },
       });
       expect(prisma.event.delete).toHaveBeenCalledWith({ where: { id: '1' } });
       expect(result).toEqual(event);
@@ -203,8 +197,33 @@ describe('EventService', () => {
     it('should throw NotFoundException when event not found', async () => {
       prisma.event.findUnique.mockResolvedValue(null);
 
-      await expect(service.delete('nonexistent')).rejects.toThrow(
+      await expect(service.delete('nonexistent', userId)).rejects.toThrow(
         NotFoundException,
+      );
+      expect(prisma.event.delete).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when user is not the organizer', async () => {
+      prisma.event.findUnique.mockResolvedValue({
+        id: '1',
+        organizerId: 'other-user',
+      });
+
+      await expect(service.delete('1', userId)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.event.delete).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when event has associated categories', async () => {
+      prisma.event.findUnique.mockResolvedValue({
+        id: '1',
+        organizerId: userId,
+      });
+      prisma.category.count.mockResolvedValue(3);
+
+      await expect(service.delete('1', userId)).rejects.toThrow(
+        BadRequestException,
       );
       expect(prisma.event.delete).not.toHaveBeenCalled();
     });

@@ -3,7 +3,7 @@ jest.mock('generated/prisma/client', () => ({
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { VenueService } from './venue.service';
 import { PrismaService } from 'src/prisma.service';
 
@@ -15,6 +15,9 @@ const mockPrisma = {
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    count: jest.fn(),
+  },
+  event: {
     count: jest.fn(),
   },
 };
@@ -74,7 +77,10 @@ describe('VenueService', () => {
 
       const result = await service.findOne('1');
 
-      expect(prisma.venue.findUnique).toHaveBeenCalledWith({ where: { id: '1' } });
+      expect(prisma.venue.findUnique).toHaveBeenCalledWith({
+        where: { id: '1' },
+        include: { events: true },
+      });
       expect(result).toEqual(venue);
     });
 
@@ -157,7 +163,7 @@ describe('VenueService', () => {
   });
 
   describe('delete', () => {
-    it('should delete and return venue when found', async () => {
+    it('should delete and return venue when found and no associated events', async () => {
       const venue = {
         id: '1',
         name: 'Maracanã',
@@ -167,11 +173,15 @@ describe('VenueService', () => {
       };
 
       prisma.venue.findUnique.mockResolvedValue(venue);
+      prisma.event.count.mockResolvedValue(0);
       prisma.venue.delete.mockResolvedValue(venue);
 
       const result = await service.delete('1');
 
       expect(prisma.venue.findUnique).toHaveBeenCalledWith({ where: { id: '1' } });
+      expect(prisma.event.count).toHaveBeenCalledWith({
+        where: { venueId: '1' },
+      });
       expect(prisma.venue.delete).toHaveBeenCalledWith({ where: { id: '1' } });
       expect(result).toEqual(venue);
     });
@@ -182,6 +192,22 @@ describe('VenueService', () => {
       await expect(service.delete('nonexistent')).rejects.toThrow(
         NotFoundException,
       );
+      expect(prisma.venue.delete).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when venue has associated events', async () => {
+      const venue = {
+        id: '1',
+        name: 'Maracanã',
+        capacity: 50000,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      prisma.venue.findUnique.mockResolvedValue(venue);
+      prisma.event.count.mockResolvedValue(3);
+
+      await expect(service.delete('1')).rejects.toThrow(BadRequestException);
       expect(prisma.venue.delete).not.toHaveBeenCalled();
     });
   });

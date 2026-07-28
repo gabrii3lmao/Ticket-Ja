@@ -175,7 +175,7 @@ describe('UserService', () => {
         where: { id: '1' },
       });
       expect(mockPrisma.event.deleteMany).toHaveBeenCalledWith({
-        where: { userId: '1' },
+        where: { organizerId: '1' },
       });
       expect(mockPrisma.user.delete).toHaveBeenCalledWith({
         where: { id: '1' },
