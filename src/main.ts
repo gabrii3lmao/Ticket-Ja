@@ -14,6 +14,7 @@ async function bootstrap() {
       'Robust ticket-selling REST API built with NestJS, Prisma, and PostgreSQL.',
     )
     .setVersion('1.0')
+    .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' })
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, documentFactory);
