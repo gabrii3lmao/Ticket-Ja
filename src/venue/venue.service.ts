@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
 import { Venue } from 'generated/prisma/client';
 import { CreateVenueDto } from './dto/create-venue.dto';
@@ -33,7 +37,10 @@ export class VenueService {
   }
 
   async findOne(id: string): Promise<Venue> {
-    const venue = await this.prisma.venue.findUnique({ where: { id } });
+    const venue = await this.prisma.venue.findUnique({
+      where: { id },
+      include: { events: true },
+    });
     if (!venue) {
       throw new NotFoundException('Venue with this ID not found');
     }
@@ -52,6 +59,15 @@ export class VenueService {
     const venue = await this.prisma.venue.findUnique({ where: { id } });
     if (!venue) {
       throw new NotFoundException('Venue with this ID not found');
+    }
+
+    const eventCount = await this.prisma.event.count({
+      where: { venueId: id },
+    });
+    if (eventCount > 0) {
+      throw new BadRequestException(
+        `Cannot delete venue: ${eventCount} event(s) still associated`,
+      );
     }
     return this.prisma.venue.delete({ where: { id } });
   }
