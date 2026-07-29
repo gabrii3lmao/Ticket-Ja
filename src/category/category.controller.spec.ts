@@ -81,6 +81,17 @@ describe('CategoryController', () => {
       expect(categoryService.findAll).toHaveBeenCalledWith(query, eventId);
       expect(response).toEqual(result);
     });
+
+    it('should pass filter and sort params to service', async () => {
+      const query = { name: 'Pista', minPrice: 50, maxPrice: 500, sortBy: 'price', sortOrder: 'asc' };
+      const result = { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } };
+
+      mockCategoryService.findAll.mockResolvedValue(result);
+
+      await controller.findAll(eventId, query);
+
+      expect(categoryService.findAll).toHaveBeenCalledWith(query, eventId);
+    });
   });
 
   describe('findOne', () => {

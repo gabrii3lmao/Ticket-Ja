@@ -30,4 +30,8 @@ export class AuthService {
     const user = await this.userService.create(data);
     return this.login(user);
   }
+
+  async delete(userId: string) {
+    return this.userService.deleteUser(userId);
+  }
 }

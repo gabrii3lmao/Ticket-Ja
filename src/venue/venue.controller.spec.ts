@@ -76,6 +76,17 @@ describe('VenueController', () => {
       expect(venueService.findAll).toHaveBeenCalledWith(query);
       expect(response).toEqual(result);
     });
+
+    it('should pass filter and sort params to service', async () => {
+      const query = { name: 'Mara', city: 'Rio', state: 'RJ', minCapacity: 1000, sortBy: 'name', sortOrder: 'asc' };
+      const result = { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } };
+
+      mockVenueService.findAll.mockResolvedValue(result);
+
+      await controller.findAll(query);
+
+      expect(venueService.findAll).toHaveBeenCalledWith(query);
+    });
   });
 
   describe('findOne', () => {

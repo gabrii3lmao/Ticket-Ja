@@ -83,6 +83,17 @@ describe('EventController', () => {
       expect(eventService.findAll).toHaveBeenCalledWith(query);
       expect(response).toEqual(result);
     });
+
+    it('should pass filter and sort params to service', async () => {
+      const query = { name: 'Rock', city: 'Rio', state: 'RJ', sortBy: 'name', sortOrder: 'asc' };
+      const result = { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } };
+
+      mockEventService.findAll.mockResolvedValue(result);
+
+      await controller.getAll(query);
+
+      expect(eventService.findAll).toHaveBeenCalledWith(query);
+    });
   });
 
   describe('getById', () => {

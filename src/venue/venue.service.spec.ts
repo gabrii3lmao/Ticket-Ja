@@ -126,6 +126,65 @@ describe('VenueService', () => {
         meta: { total: 0, page: 1, limit: 10, totalPages: 0 },
       });
     });
+
+    it('should filter venues by name', async () => {
+      const venues = [{ id: '1', name: 'Maracanã' }];
+      prisma.$transaction.mockResolvedValue([venues, 1]);
+
+      await service.findAll({ name: 'Mara' });
+
+      expect(prisma.venue.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            name: { contains: 'Mara', mode: 'insensitive' },
+          }),
+        }),
+      );
+    });
+
+    it('should filter venues by city and state', async () => {
+      const venues = [{ id: '1', name: 'Maracanã', city: 'Rio de Janeiro', state: 'RJ' }];
+      prisma.$transaction.mockResolvedValue([venues, 1]);
+
+      await service.findAll({ city: 'Rio', state: 'RJ' });
+
+      expect(prisma.venue.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            city: { contains: 'Rio', mode: 'insensitive' },
+            state: 'RJ',
+          }),
+        }),
+      );
+    });
+
+    it('should filter venues by capacity range', async () => {
+      const venues = [{ id: '1', name: 'Maracanã', capacity: 50000 }];
+      prisma.$transaction.mockResolvedValue([venues, 1]);
+
+      await service.findAll({ minCapacity: 1000, maxCapacity: 100000 });
+
+      expect(prisma.venue.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            capacity: { gte: 1000, lte: 100000 },
+          }),
+        }),
+      );
+    });
+
+    it('should apply sorting', async () => {
+      const venues = [{ id: '1', name: 'Maracanã' }];
+      prisma.$transaction.mockResolvedValue([venues, 1]);
+
+      await service.findAll({ sortBy: 'name', sortOrder: 'asc' });
+
+      expect(prisma.venue.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { name: 'asc' },
+        }),
+      );
+    });
   });
 
   describe('update', () => {

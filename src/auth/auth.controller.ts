@@ -1,16 +1,24 @@
 import {
   Body,
   Controller,
+  Delete,
   HttpCode,
   HttpStatus,
   Post,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
 import { RegisterDto } from './dto/register.dto';
 import { SignInDto } from './dto/login.dto';
+import { CurrentUser } from './decorators/current-user.decorator';
+import { ActiveUserPipe } from './pipes/active-user.pipe';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -36,5 +44,15 @@ export class AuthController {
     const user = await this.authService.validateUser(data.email, data.password);
     if (!user) throw new UnauthorizedException('Invalid credentials');
     return this.authService.login(user);
+  }
+
+  @Delete('account')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete own account' })
+  @ApiResponse({ status: 204, description: 'Account deleted successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  delete(@CurrentUser(ActiveUserPipe) userId: string) {
+    return this.authService.delete(userId);
   }
 }

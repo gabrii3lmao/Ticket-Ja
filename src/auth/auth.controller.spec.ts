@@ -6,11 +6,17 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { ActiveUserPipe } from './pipes/active-user.pipe';
+import { UserService } from 'src/user/user.service';
 
 const mockAuthService = {
   register: jest.fn(),
   login: jest.fn(),
   validateUser: jest.fn(),
+};
+
+const mockUserService = {
+  findById: jest.fn(),
 };
 
 describe('AuthController', () => {
@@ -20,7 +26,11 @@ describe('AuthController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
-      providers: [{ provide: AuthService, useValue: mockAuthService }],
+      providers: [
+        { provide: AuthService, useValue: mockAuthService },
+        { provide: UserService, useValue: mockUserService },
+        ActiveUserPipe,
+      ],
     }).compile();
 
     controller = module.get<AuthController>(AuthController);

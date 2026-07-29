@@ -30,17 +30,43 @@ export class EventService {
   }
 
   async findAll(paginationDto: QueryEventDto) {
-    const { page = 1, limit = 10 } = paginationDto;
+    const {
+      page = 1,
+      limit = 10,
+      city,
+      state,
+      name,
+      startDate,
+      endDate,
+      sortOrder = 'desc',
+      sortBy = 'createdAt',
+    } = paginationDto;
+
     const skip = (page - 1) * limit;
+
+    const orderBy = { [sortBy]: sortOrder };
+
+    const venueFilter = {
+      ...(city && { city: { contains: city, mode: 'insensitive' as const } }),
+      ...(state && { state }),
+    };
+
+    const where = {
+      ...(name && { name: { contains: name, mode: 'insensitive' as const } }),
+      ...(Object.keys(venueFilter).length && { venue: venueFilter }),
+      ...(startDate && { startDate: { gte: new Date(startDate) } }),
+      ...(endDate && { endDate: { lte: new Date(endDate) } }),
+    };
 
     const [events, total] = await this.prisma.$transaction([
       this.prisma.event.findMany({
         skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
+        take: Number(limit),
+        orderBy,
         include: { venue: true, categories: true },
+        where,
       }),
-      this.prisma.event.count(),
+      this.prisma.event.count({ where }),
     ]);
 
     return {

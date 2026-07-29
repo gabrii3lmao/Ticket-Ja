@@ -126,6 +126,52 @@ describe('EventService', () => {
         meta: { total: 0, page: 1, limit: 10, totalPages: 0 },
       });
     });
+
+    it('should filter events by name', async () => {
+      const events = [{ id: '1', name: 'Rock in Rio' }];
+      prisma.$transaction.mockResolvedValue([events, 1]);
+
+      await service.findAll({ name: 'Rock' });
+
+      expect(prisma.event.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            name: { contains: 'Rock', mode: 'insensitive' },
+          }),
+        }),
+      );
+    });
+
+    it('should filter events by city and state', async () => {
+      const events = [{ id: '1', name: 'Rock in Rio' }];
+      prisma.$transaction.mockResolvedValue([events, 1]);
+
+      await service.findAll({ city: 'São Paulo', state: 'SP' });
+
+      expect(prisma.event.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            venue: {
+              city: { contains: 'São Paulo', mode: 'insensitive' },
+              state: 'SP',
+            },
+          }),
+        }),
+      );
+    });
+
+    it('should apply sorting', async () => {
+      const events = [{ id: '1', name: 'Rock in Rio' }];
+      prisma.$transaction.mockResolvedValue([events, 1]);
+
+      await service.findAll({ sortBy: 'name', sortOrder: 'asc' });
+
+      expect(prisma.event.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { name: 'asc' },
+        }),
+      );
+    });
   });
 
   describe('update', () => {

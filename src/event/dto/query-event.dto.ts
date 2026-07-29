@@ -66,4 +66,22 @@ export class QueryEventDto {
   @Type(() => Date)
   @IsDate()
   endDate?: Date;
+
+  @ApiProperty({
+    description: 'Field to sort by',
+    required: false,
+    example: 'createdAt',
+  })
+  @IsOptional()
+  @IsString()
+  sortBy?: string;
+
+  @ApiProperty({
+    description: 'Sort order',
+    required: false,
+    example: 'desc',
+  })
+  @IsOptional()
+  @IsString()
+  sortOrder?: 'asc' | 'desc' = 'desc';
 }

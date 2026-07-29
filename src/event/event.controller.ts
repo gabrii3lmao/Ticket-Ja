@@ -67,10 +67,7 @@ export class EventController {
   @ApiOperation({ summary: 'Delete an event' })
   @ApiResponse({ status: 204, description: 'Event deleted successfully' })
   @ApiResponse({ status: 404, description: 'Event not found' })
-  delete(
-    @Param('id') id: string,
-    @CurrentUser(ActiveUserPipe) userId: string,
-  ) {
+  delete(@Param('id') id: string, @CurrentUser(ActiveUserPipe) userId: string) {
     return this.eventService.delete(id, userId);
   }
 

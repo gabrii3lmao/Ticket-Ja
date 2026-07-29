@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Min, Max } from 'class-validator';
+import { IsInt, IsOptional, Min, Max, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class QueryVenueDto {
@@ -17,4 +17,42 @@ export class QueryVenueDto {
   @Min(1)
   @Max(100)
   limit?: number = 10;
+
+  // Filter Properties
+  @ApiProperty({ description: 'Filter by name (partial match)', required: false, example: 'Maracanã' })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiProperty({ description: 'Filter by city (partial match)', required: false, example: 'São Paulo' })
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @ApiProperty({ description: 'Filter by state (UF)', required: false, example: 'SP' })
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @ApiProperty({ description: 'Minimum capacity filter', required: false, example: 1000 })
+  @Type(() => Number)
+  @IsInt()
+  @IsOptional()
+  minCapacity?: number;
+
+  @ApiProperty({ description: 'Maximum capacity filter', required: false, example: 100000 })
+  @Type(() => Number)
+  @IsInt()
+  @IsOptional()
+  maxCapacity?: number;
+
+  @ApiProperty({ description: 'Field to sort by', required: false, example: 'createdAt' })
+  @IsOptional()
+  @IsString()
+  sortBy?: string;
+
+  @ApiProperty({ description: 'Sort order', required: false, example: 'desc' })
+  @IsOptional()
+  @IsString()
+  sortOrder?: 'asc' | 'desc' = 'desc';
 }

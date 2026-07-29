@@ -18,16 +18,39 @@ export class VenueService {
   }
 
   async findAll(query: QueryVenueDto) {
-    const { page = 1, limit = 10 } = query;
+    const {
+      page = 1,
+      limit = 10,
+      city,
+      maxCapacity, // Corrigido o typo
+      minCapacity, // Corrigido o typo
+      name,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      state,
+    } = query;
     const skip = (page - 1) * limit;
+
+    const capacityFilter = {
+      ...(minCapacity && { gte: Number(minCapacity) }),
+      ...(maxCapacity && { lte: Number(maxCapacity) }),
+    };
+
+    const where = {
+      ...(name && { name: { contains: name, mode: 'insensitive' as const } }),
+      ...(city && { city: { contains: city, mode: 'insensitive' as const } }),
+      ...(state && { state }),
+      ...(Object.keys(capacityFilter).length && { capacity: capacityFilter }),
+    };
 
     const [venues, total] = await this.prisma.$transaction([
       this.prisma.venue.findMany({
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        where,
+        orderBy: { [sortBy]: sortOrder },
       }),
-      this.prisma.venue.count(),
+      this.prisma.venue.count({ where }),
     ]);
 
     return {

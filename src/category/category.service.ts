@@ -2,7 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  ForbiddenException
+  ForbiddenException,
 } from '@nestjs/common';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -18,25 +18,56 @@ export class CategoryService {
       where: { id: eventId },
     });
 
-    if(!event || event.organizerId !== userId ) {
+    if (!event || event.organizerId !== userId) {
       throw new ForbiddenException('Event not found or not yours');
     }
-    
+
     return this.prisma.category.create({ data: { ...data, eventId: eventId } });
   }
 
   async findAll(query: QueryCategoryDto, eventId: string) {
-    const { page = 1, limit = 10 } = query;
+    const {
+      page = 1,
+      limit = 10,
+      name,
+      maxPrice,
+      minPrice,
+      salesEndDate,
+      salesStartDate,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = query;
     const skip = (page - 1) * limit;
+
+    const priceFilter = {
+      ...(minPrice && { gte: minPrice }),
+      ...(maxPrice && { lte: maxPrice }),
+    };
+
+    const where = {
+      eventId,
+      ...(name && {
+        name: { contains: name, mode: 'insensitive' as const },
+      }),
+      ...(Object.keys(priceFilter).length && { price: priceFilter }),
+      ...(salesStartDate && {
+        salesStart: { gte: new Date(salesStartDate) },
+      }),
+      ...(salesEndDate && {
+        salesEnd: { lte: new Date(salesEndDate) },
+      }),
+    };
+
+    const orderBy = { [sortBy]: sortOrder };
 
     const [categories, total] = await this.prisma.$transaction([
       this.prisma.category.findMany({
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
-        where: { eventId },
+        orderBy,
+        where,
       }),
-      this.prisma.category.count({ where: { eventId } }),
+      this.prisma.category.count({ where }),
     ]);
 
     return {

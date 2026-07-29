@@ -160,6 +160,49 @@ describe('CategoryService', () => {
         meta: { total: 0, page: 1, limit: 10, totalPages: 0 },
       });
     });
+
+    it('should filter categories by name', async () => {
+      const categories = [{ id: '1', name: 'Pista Premium' }];
+      prisma.$transaction.mockResolvedValue([categories, 1]);
+
+      await service.findAll({ name: 'Pista' }, eventId);
+
+      expect(prisma.category.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            name: { contains: 'Pista', mode: 'insensitive' },
+          }),
+        }),
+      );
+    });
+
+    it('should filter categories by price range', async () => {
+      const categories = [{ id: '1', name: 'Pista Premium', price: 250 }];
+      prisma.$transaction.mockResolvedValue([categories, 1]);
+
+      await service.findAll({ minPrice: 100, maxPrice: 500 }, eventId);
+
+      expect(prisma.category.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            price: { gte: 100, lte: 500 },
+          }),
+        }),
+      );
+    });
+
+    it('should apply sorting', async () => {
+      const categories = [{ id: '1', name: 'Pista Premium' }];
+      prisma.$transaction.mockResolvedValue([categories, 1]);
+
+      await service.findAll({ sortBy: 'price', sortOrder: 'asc' }, eventId);
+
+      expect(prisma.category.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { price: 'asc' },
+        }),
+      );
+    });
   });
 
   describe('update', () => {

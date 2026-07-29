@@ -50,10 +50,7 @@ export class CategoryController {
     status: 200,
     description: 'Returns paginated list of categories',
   })
-  findAll(
-    @Param('eventId') eventId: string,
-    @Query() query: QueryCategoryDto,
-  ) {
+  findAll(@Param('eventId') eventId: string, @Query() query: QueryCategoryDto) {
     return this.categoryService.findAll(query, eventId);
   }
 
