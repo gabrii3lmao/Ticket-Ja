@@ -88,7 +88,7 @@ export class CategoryService {
     return category;
   }
 
-  async update(id: string, data: UpdateCategoryDto) {
+  async update(id: string, userId: string, data: UpdateCategoryDto) {
     const categoryExist = await this.prisma.category.findUnique({
       where: { id },
     });
@@ -97,19 +97,39 @@ export class CategoryService {
       throw new NotFoundException('Category with this ID not found');
     }
 
+    const event = await this.prisma.event.findUnique({
+      where: { id: categoryExist?.eventId },
+    });
+
+    if (!event || event.organizerId !== userId) {
+      throw new ForbiddenException(
+        'Category in this event not found or not yours',
+      );
+    }
+
     return this.prisma.category.update({
       data: { ...data },
       where: { id },
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, userId: string) {
     const categoryExist = await this.prisma.category.findUnique({
       where: { id },
     });
 
     if (!categoryExist) {
       throw new NotFoundException('Category with this ID not found');
+    }
+
+    const event = await this.prisma.event.findUnique({
+      where: { id: categoryExist?.eventId },
+    });
+
+    if (!event || event.organizerId !== userId) {
+      throw new ForbiddenException(
+        'Category in this event not found or not yours',
+      );
     }
 
     const orderCount = await this.prisma.orderItem.count({

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
 import { Venue } from 'generated/prisma/client';
@@ -13,8 +14,8 @@ import { QueryVenueDto } from './dto/query-venue.dto';
 export class VenueService {
   constructor(private prisma: PrismaService) {}
 
-  async create(data: CreateVenueDto): Promise<Venue> {
-    return this.prisma.venue.create({ data });
+  async create(data: CreateVenueDto, userId: string): Promise<Venue> {
+    return this.prisma.venue.create({ data: { ...data, organizerId: userId } });
   }
 
   async findAll(query: QueryVenueDto) {
@@ -70,18 +71,22 @@ export class VenueService {
     return venue;
   }
 
-  async update(id: string, data: UpdateVenueDto): Promise<Venue> {
+  async update(
+    id: string,
+    userId: string,
+    data: UpdateVenueDto,
+  ): Promise<Venue> {
     const venue = await this.prisma.venue.findUnique({ where: { id } });
-    if (!venue) {
-      throw new NotFoundException('Venue with this ID not found');
+    if (!venue || venue.organizerId !== userId) {
+      throw new ForbiddenException('Venue not found or not yours');
     }
     return this.prisma.venue.update({ where: { id }, data });
   }
 
-  async delete(id: string): Promise<Venue> {
+  async delete(id: string, userId: string): Promise<Venue> {
     const venue = await this.prisma.venue.findUnique({ where: { id } });
-    if (!venue) {
-      throw new NotFoundException('Venue with this ID not found');
+    if (!venue || venue.organizerId !== userId) {
+      throw new ForbiddenException('Venue not found or not yours');
     }
 
     const eventCount = await this.prisma.event.count({

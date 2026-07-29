@@ -2,6 +2,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
 import { User } from 'generated/prisma/client';
@@ -46,6 +47,12 @@ export class UserService {
 
     if (!existingUser) {
       throw new NotFoundException('User with this ID not found');
+    }
+    const orderCount = await this.prisma.order.count({ where: { userId: id } });
+    if (orderCount > 0) {
+      throw new BadRequestException(
+        `Cannot delete account: ${orderCount} order(s) still associated`,
+      );
     }
     await this.prisma.event.deleteMany({ where: { organizerId: id } });
     return this.prisma.user.delete({ where: { id } });

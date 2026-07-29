@@ -5,6 +5,10 @@ jest.mock('generated/prisma/client', () => ({
 import { Test, TestingModule } from '@nestjs/testing';
 import { VenueController } from './venue.controller';
 import { VenueService } from './venue.service';
+import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
+import { UserService } from 'src/user/user.service';
+
+const userId = 'user-uuid';
 
 const mockVenueService = {
   create: jest.fn(),
@@ -12,6 +16,10 @@ const mockVenueService = {
   findOne: jest.fn(),
   update: jest.fn(),
   delete: jest.fn(),
+};
+
+const mockUserService = {
+  findById: jest.fn(),
 };
 
 describe('VenueController', () => {
@@ -23,6 +31,8 @@ describe('VenueController', () => {
       controllers: [VenueController],
       providers: [
         { provide: VenueService, useValue: mockVenueService },
+        { provide: UserService, useValue: mockUserService },
+        ActiveUserPipe,
       ],
     }).compile();
 
@@ -35,7 +45,7 @@ describe('VenueController', () => {
   });
 
   describe('create', () => {
-    it('should call venueService.create with the DTO', async () => {
+    it('should call venueService.create with the DTO and userId', async () => {
       const dto = {
         name: 'Maracanã',
         capacity: 50000,
@@ -46,9 +56,9 @@ describe('VenueController', () => {
 
       mockVenueService.create.mockResolvedValue(createdVenue);
 
-      const result = await controller.create(dto);
+      const result = await controller.create(dto, userId);
 
-      expect(venueService.create).toHaveBeenCalledWith(dto);
+      expect(venueService.create).toHaveBeenCalledWith(dto, userId);
       expect(result).toEqual(createdVenue);
     });
   });
@@ -109,7 +119,7 @@ describe('VenueController', () => {
   });
 
   describe('update', () => {
-    it('should call venueService.update with the id and DTO', async () => {
+    it('should call venueService.update with id, userId and DTO', async () => {
       const dto = { name: 'Maracanã Reformado' };
       const updatedVenue = {
         id: '1',
@@ -121,15 +131,15 @@ describe('VenueController', () => {
 
       mockVenueService.update.mockResolvedValue(updatedVenue);
 
-      const result = await controller.update('1', dto);
+      const result = await controller.update('1', dto, userId);
 
-      expect(venueService.update).toHaveBeenCalledWith('1', dto);
+      expect(venueService.update).toHaveBeenCalledWith('1', userId, dto);
       expect(result).toEqual(updatedVenue);
     });
   });
 
   describe('delete', () => {
-    it('should call venueService.delete with the id', async () => {
+    it('should call venueService.delete with id and userId', async () => {
       const venue = {
         id: '1',
         name: 'Maracanã',
@@ -140,9 +150,9 @@ describe('VenueController', () => {
 
       mockVenueService.delete.mockResolvedValue(venue);
 
-      const result = await controller.delete('1');
+      const result = await controller.delete('1', userId);
 
-      expect(venueService.delete).toHaveBeenCalledWith('1');
+      expect(venueService.delete).toHaveBeenCalledWith('1', userId);
       expect(result).toEqual(venue);
     });
   });

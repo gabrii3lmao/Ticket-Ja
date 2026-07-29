@@ -3,9 +3,11 @@ jest.mock('generated/prisma/client', () => ({
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { VenueService } from './venue.service';
 import { PrismaService } from 'src/prisma.service';
+
+const userId = 'user-uuid';
 
 const mockPrisma = {
   $transaction: jest.fn(),
@@ -43,20 +45,22 @@ describe('VenueService', () => {
   });
 
   describe('create', () => {
-    it('should create a venue', async () => {
+    it('should create a venue linked to the user', async () => {
       const dto = {
         name: 'Maracanã',
         capacity: 50000,
         city: 'Rio de Janeiro',
         state: 'RJ',
       };
-      const createdVenue = { id: 'uuid', ...dto, createdAt: new Date(), updatedAt: new Date() };
+      const createdVenue = { id: 'uuid', organizerId: userId, ...dto, createdAt: new Date(), updatedAt: new Date() };
 
       prisma.venue.create.mockResolvedValue(createdVenue);
 
-      const result = await service.create(dto);
+      const result = await service.create(dto, userId);
 
-      expect(prisma.venue.create).toHaveBeenCalledWith({ data: dto });
+      expect(prisma.venue.create).toHaveBeenCalledWith({
+        data: { ...dto, organizerId: userId },
+      });
       expect(result).toEqual(createdVenue);
     });
   });
@@ -188,11 +192,12 @@ describe('VenueService', () => {
   });
 
   describe('update', () => {
-    it('should update and return venue when found', async () => {
+    it('should update and return venue when user owns it', async () => {
       const existingVenue = {
         id: '1',
         name: 'Maracanã',
         capacity: 50000,
+        organizerId: userId,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -201,7 +206,7 @@ describe('VenueService', () => {
       prisma.venue.findUnique.mockResolvedValue(existingVenue);
       prisma.venue.update.mockResolvedValue({ ...existingVenue, ...updateDto });
 
-      const result = await service.update('1', updateDto);
+      const result = await service.update('1', userId, updateDto);
 
       expect(prisma.venue.findUnique).toHaveBeenCalledWith({ where: { id: '1' } });
       expect(prisma.venue.update).toHaveBeenCalledWith({
@@ -211,22 +216,41 @@ describe('VenueService', () => {
       expect(result.name).toBe('Maracanã Reformado');
     });
 
-    it('should throw NotFoundException when venue not found', async () => {
+    it('should throw ForbiddenException when venue not found', async () => {
       prisma.venue.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.update('nonexistent', { name: 'Test' }),
-      ).rejects.toThrow(NotFoundException);
+        service.update('nonexistent', userId, { name: 'Test' }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.venue.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw ForbiddenException when user is not the owner', async () => {
+      const existingVenue = {
+        id: '1',
+        name: 'Maracanã',
+        capacity: 50000,
+        organizerId: 'other-user',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      prisma.venue.findUnique.mockResolvedValue(existingVenue);
+
+      await expect(
+        service.update('1', userId, { name: 'Test' }),
+      ).rejects.toThrow(ForbiddenException);
       expect(prisma.venue.update).not.toHaveBeenCalled();
     });
   });
 
   describe('delete', () => {
-    it('should delete and return venue when found and no associated events', async () => {
+    it('should delete and return venue when user owns it and no associated events', async () => {
       const venue = {
         id: '1',
         name: 'Maracanã',
         capacity: 50000,
+        organizerId: userId,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -235,7 +259,7 @@ describe('VenueService', () => {
       prisma.event.count.mockResolvedValue(0);
       prisma.venue.delete.mockResolvedValue(venue);
 
-      const result = await service.delete('1');
+      const result = await service.delete('1', userId);
 
       expect(prisma.venue.findUnique).toHaveBeenCalledWith({ where: { id: '1' } });
       expect(prisma.event.count).toHaveBeenCalledWith({
@@ -245,11 +269,29 @@ describe('VenueService', () => {
       expect(result).toEqual(venue);
     });
 
-    it('should throw NotFoundException when venue not found', async () => {
+    it('should throw ForbiddenException when venue not found', async () => {
       prisma.venue.findUnique.mockResolvedValue(null);
 
-      await expect(service.delete('nonexistent')).rejects.toThrow(
-        NotFoundException,
+      await expect(service.delete('nonexistent', userId)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(prisma.venue.delete).not.toHaveBeenCalled();
+    });
+
+    it('should throw ForbiddenException when user is not the owner', async () => {
+      const venue = {
+        id: '1',
+        name: 'Maracanã',
+        capacity: 50000,
+        organizerId: 'other-user',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      prisma.venue.findUnique.mockResolvedValue(venue);
+
+      await expect(service.delete('1', userId)).rejects.toThrow(
+        ForbiddenException,
       );
       expect(prisma.venue.delete).not.toHaveBeenCalled();
     });
@@ -259,6 +301,7 @@ describe('VenueService', () => {
         id: '1',
         name: 'Maracanã',
         capacity: 50000,
+        organizerId: userId,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -266,7 +309,7 @@ describe('VenueService', () => {
       prisma.venue.findUnique.mockResolvedValue(venue);
       prisma.event.count.mockResolvedValue(3);
 
-      await expect(service.delete('1')).rejects.toThrow(BadRequestException);
+      await expect(service.delete('1', userId)).rejects.toThrow(BadRequestException);
       expect(prisma.venue.delete).not.toHaveBeenCalled();
     });
   });

@@ -115,7 +115,7 @@ describe('CategoryController', () => {
   });
 
   describe('update', () => {
-    it('should call categoryService.update with the id and DTO', async () => {
+    it('should call categoryService.update with id, userId and DTO', async () => {
       const dto = { name: 'Pista VIP' };
       const updatedCategory = {
         id: '1',
@@ -128,15 +128,15 @@ describe('CategoryController', () => {
 
       mockCategoryService.update.mockResolvedValue(updatedCategory);
 
-      const result = await controller.update('1', dto);
+      const result = await controller.update('1', dto, userId);
 
-      expect(categoryService.update).toHaveBeenCalledWith('1', dto);
+      expect(categoryService.update).toHaveBeenCalledWith('1', userId, dto);
       expect(result).toEqual(updatedCategory);
     });
   });
 
   describe('remove', () => {
-    it('should call categoryService.remove with the id', async () => {
+    it('should call categoryService.remove with id and userId', async () => {
       const category = {
         id: '1',
         name: 'Pista Premium',
@@ -148,9 +148,9 @@ describe('CategoryController', () => {
 
       mockCategoryService.remove.mockResolvedValue(category);
 
-      const result = await controller.remove('1');
+      const result = await controller.remove('1', userId);
 
-      expect(categoryService.remove).toHaveBeenCalledWith('1');
+      expect(categoryService.remove).toHaveBeenCalledWith('1', userId);
       expect(result).toEqual(category);
     });
   });

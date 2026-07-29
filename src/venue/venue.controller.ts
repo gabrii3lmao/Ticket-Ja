@@ -21,6 +21,8 @@ import { CreateVenueDto } from './dto/create-venue.dto';
 import { UpdateVenueDto } from './dto/update-venue.dto';
 import { QueryVenueDto } from './dto/query-venue.dto';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
 
 @ApiTags('venue')
 @Controller('venue')
@@ -32,8 +34,11 @@ export class VenueController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new venue' })
   @ApiResponse({ status: 201, description: 'Venue created successfully' })
-  create(@Body() data: CreateVenueDto) {
-    return this.venueService.create(data);
+  create(
+    @Body() data: CreateVenueDto,
+    @CurrentUser(ActiveUserPipe) userId: string,
+  ) {
+    return this.venueService.create(data, userId);
   }
 
   @Public()
@@ -61,8 +66,12 @@ export class VenueController {
   @ApiOperation({ summary: 'Update a venue' })
   @ApiResponse({ status: 200, description: 'Venue updated successfully' })
   @ApiResponse({ status: 404, description: 'Venue not found' })
-  update(@Param('id') id: string, @Body() data: UpdateVenueDto) {
-    return this.venueService.update(id, data);
+  update(
+    @Param('id') id: string,
+    @Body() data: UpdateVenueDto,
+    @CurrentUser(ActiveUserPipe) userId: string,
+  ) {
+    return this.venueService.update(id, userId, data);
   }
 
   @Delete(':id')
@@ -71,7 +80,7 @@ export class VenueController {
   @ApiOperation({ summary: 'Delete a venue' })
   @ApiResponse({ status: 204, description: 'Venue deleted successfully' })
   @ApiResponse({ status: 404, description: 'Venue not found' })
-  delete(@Param('id') id: string) {
-    return this.venueService.delete(id);
+  delete(@Param('id') id: string, @CurrentUser(ActiveUserPipe) userId: string) {
+    return this.venueService.delete(id, userId);
   }
 }

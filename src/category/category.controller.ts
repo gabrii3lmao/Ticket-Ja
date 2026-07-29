@@ -73,8 +73,9 @@ export class CategoryController {
   update(
     @Param('id') id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
+    @CurrentUser(ActiveUserPipe) userId: string,
   ) {
-    return this.categoryService.update(id, updateCategoryDto);
+    return this.categoryService.update(id, userId, updateCategoryDto);
   }
 
   @Delete(':id')
@@ -83,7 +84,7 @@ export class CategoryController {
   @ApiOperation({ summary: 'Delete a category' })
   @ApiResponse({ status: 204, description: 'Category deleted successfully' })
   @ApiResponse({ status: 404, description: 'Category not found' })
-  remove(@Param('id') id: string) {
-    return this.categoryService.remove(id);
+  remove(@Param('id') id: string, @CurrentUser(ActiveUserPipe) userId: string) {
+    return this.categoryService.remove(id, userId);
   }
 }

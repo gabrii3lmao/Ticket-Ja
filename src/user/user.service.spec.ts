@@ -7,7 +7,7 @@ jest.mock('bcrypt', () => ({
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { UserService } from './user.service';
 import { PrismaService } from 'src/prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -20,6 +20,9 @@ const mockPrisma = {
   },
   event: {
     deleteMany: jest.fn(),
+  },
+  order: {
+    count: jest.fn(),
   },
 };
 
@@ -166,6 +169,7 @@ describe('UserService', () => {
       };
 
       mockPrisma.user.findUnique.mockResolvedValue(user);
+      mockPrisma.order.count.mockResolvedValue(0);
       mockPrisma.event.deleteMany.mockResolvedValue({ count: 1 });
       mockPrisma.user.delete.mockResolvedValue(user);
 
@@ -181,6 +185,25 @@ describe('UserService', () => {
         where: { id: '1' },
       });
       expect(result).toEqual(user);
+    });
+
+    it('should throw BadRequestException when user has associated orders', async () => {
+      const user = {
+        id: '1',
+        name: 'John',
+        email: 'john@mail.com',
+        passwordHash: 'hash',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      mockPrisma.user.findUnique.mockResolvedValue(user);
+      mockPrisma.order.count.mockResolvedValue(3);
+
+      await expect(service.deleteUser('1')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockPrisma.user.delete).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException when user not found', async () => {
