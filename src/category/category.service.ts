@@ -16,10 +16,37 @@ export class CategoryService {
   async create(data: CreateCategoryDto, eventId: string, userId: string) {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
+      include: { venue: true },
     });
 
     if (!event || event.organizerId !== userId) {
       throw new ForbiddenException('Event not found or not yours');
+    }
+
+    // 1. Category quantity cannot surpass Venue capacity (duuh)
+    const existingTotal = await this.prisma.category.aggregate({
+      where: { eventId },
+      _sum: { quantity: true },
+    });
+
+    // Date validation
+    if (data.salesEnd && data.salesEnd > event.startDate) {
+      throw new BadRequestException(
+        'Sales end date must be before or on the event start date',
+      );
+    }
+
+    if (data.salesStart && data.salesEnd && data.salesStart >= data.salesEnd) {
+      throw new BadRequestException(
+        'Sales start date must be before sales end date',
+      );
+    }
+
+    const totalSold = existingTotal._sum.quantity ?? 0;
+    if (totalSold + data.quantity > event.venue.capacity) {
+      throw new BadRequestException(
+        `Total tickets (${totalSold + data.quantity}) exceeds venue capacity (${event.venue.capacity})`,
+      );
     }
 
     return this.prisma.category.create({ data: { ...data, eventId: eventId } });

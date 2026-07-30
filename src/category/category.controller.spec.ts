@@ -46,7 +46,12 @@ describe('CategoryController', () => {
   describe('create', () => {
     it('should call categoryService.create with eventId, DTO, and userId', async () => {
       const dto = { name: 'Pista Premium', price: 250, quantity: 1000 };
-      const createdCategory = { id: 'uuid', ...dto, eventId, createdAt: new Date() };
+      const createdCategory = {
+        id: 'uuid',
+        ...dto,
+        eventId,
+        createdAt: new Date(),
+      };
 
       mockCategoryService.create.mockResolvedValue(createdCategory);
 
@@ -83,8 +88,17 @@ describe('CategoryController', () => {
     });
 
     it('should pass filter and sort params to service', async () => {
-      const query = { name: 'Pista', minPrice: 50, maxPrice: 500, sortBy: 'price', sortOrder: 'asc' };
-      const result = { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } };
+      const query = {
+        name: 'Pista',
+        minPrice: 50,
+        maxPrice: 500,
+        sortBy: 'price',
+        sortOrder: 'asc',
+      };
+      const result = {
+        data: [],
+        meta: { total: 0, page: 1, limit: 10, totalPages: 0 },
+      };
 
       mockCategoryService.findAll.mockResolvedValue(result);
 

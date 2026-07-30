@@ -85,8 +85,17 @@ describe('EventController', () => {
     });
 
     it('should pass filter and sort params to service', async () => {
-      const query = { name: 'Rock', city: 'Rio', state: 'RJ', sortBy: 'name', sortOrder: 'asc' };
-      const result = { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } };
+      const query = {
+        name: 'Rock',
+        city: 'Rio',
+        state: 'RJ',
+        sortBy: 'name',
+        sortOrder: 'asc',
+      };
+      const result = {
+        data: [],
+        meta: { total: 0, page: 1, limit: 10, totalPages: 0 },
+      };
 
       mockEventService.findAll.mockResolvedValue(result);
 
@@ -130,7 +139,11 @@ describe('EventController', () => {
   describe('update', () => {
     it('should call eventService.update with id, userId, and DTO', async () => {
       const dto = { name: 'Updated Show' };
-      const updatedEvent = { id: '1', name: 'Updated Show', organizerId: userId };
+      const updatedEvent = {
+        id: '1',
+        name: 'Updated Show',
+        organizerId: userId,
+      };
 
       mockEventService.update.mockResolvedValue(updatedEvent);
 

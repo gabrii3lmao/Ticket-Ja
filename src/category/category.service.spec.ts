@@ -3,7 +3,11 @@ jest.mock('generated/prisma/client', () => ({
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CategoryService } from './category.service';
 import { PrismaService } from 'src/prisma.service';
 
@@ -16,6 +20,7 @@ const mockPrisma = {
     update: jest.fn(),
     delete: jest.fn(),
     count: jest.fn(),
+    aggregate: jest.fn(),
   },
   event: {
     findUnique: jest.fn(),
@@ -27,6 +32,16 @@ const mockPrisma = {
 
 const eventId = 'event-uuid';
 const userId = 'user-uuid';
+const eventStartDate = new Date('2026-09-15T20:00:00.000Z');
+
+const baseEvent = {
+  id: eventId,
+  name: 'Rock in Rio',
+  startDate: eventStartDate,
+  endDate: new Date('2026-09-16T04:00:00.000Z'),
+  organizerId: userId,
+  venue: { capacity: 2000 },
+};
 
 describe('CategoryService', () => {
   let service: CategoryService;
@@ -50,23 +65,27 @@ describe('CategoryService', () => {
 
   describe('create', () => {
     it('should create a category when user owns the event', async () => {
-      const dto = {
-        name: 'Pista Premium',
-        price: 250,
-        quantity: 1000,
+      const dto = { name: 'Pista Premium', price: 250, quantity: 1000 };
+      const createdCategory = {
+        id: 'uuid',
+        ...dto,
+        eventId,
+        createdAt: new Date(),
       };
-      const createdCategory = { id: 'uuid', ...dto, eventId, createdAt: new Date() };
 
-      prisma.event.findUnique.mockResolvedValue({
-        id: eventId,
-        organizerId: userId,
-      });
+      prisma.event.findUnique.mockResolvedValue(baseEvent);
+      prisma.category.aggregate.mockResolvedValue({ _sum: { quantity: 0 } });
       prisma.category.create.mockResolvedValue(createdCategory);
 
       const result = await service.create(dto, eventId, userId);
 
       expect(prisma.event.findUnique).toHaveBeenCalledWith({
         where: { id: eventId },
+        include: { venue: true },
+      });
+      expect(prisma.category.aggregate).toHaveBeenCalledWith({
+        where: { eventId },
+        _sum: { quantity: true },
       });
       expect(prisma.category.create).toHaveBeenCalledWith({
         data: { ...dto, eventId },
@@ -75,22 +94,80 @@ describe('CategoryService', () => {
     });
 
     it('should throw ForbiddenException when user does not own the event', async () => {
-      const dto = {
-        name: 'Pista Premium',
-        price: 250,
-        quantity: 1000,
-      };
+      const dto = { name: 'Pista Premium', price: 250, quantity: 1000 };
 
       prisma.event.findUnique.mockResolvedValue({
-        id: eventId,
+        ...baseEvent,
         organizerId: 'other-user',
       });
 
-      await expect(
-        service.create(dto, eventId, userId),
-      ).rejects.toThrow(ForbiddenException);
-
+      await expect(service.create(dto, eventId, userId)).rejects.toThrow(
+        ForbiddenException,
+      );
       expect(prisma.category.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when total quantity exceeds venue capacity', async () => {
+      const dto = { name: 'Pista Premium', price: 250, quantity: 600 };
+
+      prisma.event.findUnique.mockResolvedValue(baseEvent);
+      prisma.category.aggregate.mockResolvedValue({ _sum: { quantity: 1500 } });
+
+      await expect(service.create(dto, eventId, userId)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.category.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when salesEnd is after event startDate', async () => {
+      const dto = {
+        name: 'Pista Premium',
+        price: 250,
+        quantity: 500,
+        salesEnd: new Date('2027-01-01'),
+      };
+
+      prisma.event.findUnique.mockResolvedValue(baseEvent);
+
+      await expect(service.create(dto, eventId, userId)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.category.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when salesStart is on or after salesEnd', async () => {
+      const dto = {
+        name: 'Pista Premium',
+        price: 250,
+        quantity: 500,
+        salesStart: new Date('2026-08-10'),
+        salesEnd: new Date('2026-08-01'),
+      };
+
+      prisma.event.findUnique.mockResolvedValue(baseEvent);
+
+      await expect(service.create(dto, eventId, userId)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.category.create).not.toHaveBeenCalled();
+    });
+
+    it('should create category when quantity exactly matches capacity', async () => {
+      const dto = { name: 'Pista Premium', price: 250, quantity: 2000 };
+      const createdCategory = {
+        id: 'uuid',
+        ...dto,
+        eventId,
+        createdAt: new Date(),
+      };
+
+      prisma.event.findUnique.mockResolvedValue(baseEvent);
+      prisma.category.aggregate.mockResolvedValue({ _sum: { quantity: 0 } });
+      prisma.category.create.mockResolvedValue(createdCategory);
+
+      const result = await service.create(dto, eventId, userId);
+
+      expect(result).toEqual(createdCategory);
     });
   });
 
@@ -222,7 +299,10 @@ describe('CategoryService', () => {
         id: eventId,
         organizerId: userId,
       });
-      prisma.category.update.mockResolvedValue({ ...existingCategory, ...updateDto });
+      prisma.category.update.mockResolvedValue({
+        ...existingCategory,
+        ...updateDto,
+      });
 
       const result = await service.update('1', userId, updateDto);
 

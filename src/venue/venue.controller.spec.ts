@@ -52,7 +52,12 @@ describe('VenueController', () => {
         city: 'Rio de Janeiro',
         state: 'RJ',
       };
-      const createdVenue = { id: 'uuid', ...dto, createdAt: new Date(), updatedAt: new Date() };
+      const createdVenue = {
+        id: 'uuid',
+        ...dto,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
       mockVenueService.create.mockResolvedValue(createdVenue);
 
@@ -88,8 +93,18 @@ describe('VenueController', () => {
     });
 
     it('should pass filter and sort params to service', async () => {
-      const query = { name: 'Mara', city: 'Rio', state: 'RJ', minCapacity: 1000, sortBy: 'name', sortOrder: 'asc' };
-      const result = { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } };
+      const query = {
+        name: 'Mara',
+        city: 'Rio',
+        state: 'RJ',
+        minCapacity: 1000,
+        sortBy: 'name',
+        sortOrder: 'asc',
+      };
+      const result = {
+        data: [],
+        meta: { total: 0, page: 1, limit: 10, totalPages: 0 },
+      };
 
       mockVenueService.findAll.mockResolvedValue(result);
 

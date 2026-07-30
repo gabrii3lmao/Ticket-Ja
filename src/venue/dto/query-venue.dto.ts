@@ -19,34 +19,58 @@ export class QueryVenueDto {
   limit?: number = 10;
 
   // Filter Properties
-  @ApiProperty({ description: 'Filter by name (partial match)', required: false, example: 'Maracanã' })
+  @ApiProperty({
+    description: 'Filter by name (partial match)',
+    required: false,
+    example: 'Maracanã',
+  })
   @IsOptional()
   @IsString()
   name?: string;
 
-  @ApiProperty({ description: 'Filter by city (partial match)', required: false, example: 'São Paulo' })
+  @ApiProperty({
+    description: 'Filter by city (partial match)',
+    required: false,
+    example: 'São Paulo',
+  })
   @IsOptional()
   @IsString()
   city?: string;
 
-  @ApiProperty({ description: 'Filter by state (UF)', required: false, example: 'SP' })
+  @ApiProperty({
+    description: 'Filter by state (UF)',
+    required: false,
+    example: 'SP',
+  })
   @IsOptional()
   @IsString()
   state?: string;
 
-  @ApiProperty({ description: 'Minimum capacity filter', required: false, example: 1000 })
+  @ApiProperty({
+    description: 'Minimum capacity filter',
+    required: false,
+    example: 1000,
+  })
   @Type(() => Number)
   @IsInt()
   @IsOptional()
   minCapacity?: number;
 
-  @ApiProperty({ description: 'Maximum capacity filter', required: false, example: 100000 })
+  @ApiProperty({
+    description: 'Maximum capacity filter',
+    required: false,
+    example: 100000,
+  })
   @Type(() => Number)
   @IsInt()
   @IsOptional()
   maxCapacity?: number;
 
-  @ApiProperty({ description: 'Field to sort by', required: false, example: 'createdAt' })
+  @ApiProperty({
+    description: 'Field to sort by',
+    required: false,
+    example: 'createdAt',
+  })
   @IsOptional()
   @IsString()
   sortBy?: string;

@@ -3,7 +3,11 @@ jest.mock('generated/prisma/client', () => ({
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { VenueService } from './venue.service';
 import { PrismaService } from 'src/prisma.service';
 
@@ -52,7 +56,13 @@ describe('VenueService', () => {
         city: 'Rio de Janeiro',
         state: 'RJ',
       };
-      const createdVenue = { id: 'uuid', organizerId: userId, ...dto, createdAt: new Date(), updatedAt: new Date() };
+      const createdVenue = {
+        id: 'uuid',
+        organizerId: userId,
+        ...dto,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
       prisma.venue.create.mockResolvedValue(createdVenue);
 
@@ -147,7 +157,9 @@ describe('VenueService', () => {
     });
 
     it('should filter venues by city and state', async () => {
-      const venues = [{ id: '1', name: 'Maracanã', city: 'Rio de Janeiro', state: 'RJ' }];
+      const venues = [
+        { id: '1', name: 'Maracanã', city: 'Rio de Janeiro', state: 'RJ' },
+      ];
       prisma.$transaction.mockResolvedValue([venues, 1]);
 
       await service.findAll({ city: 'Rio', state: 'RJ' });
@@ -208,7 +220,9 @@ describe('VenueService', () => {
 
       const result = await service.update('1', userId, updateDto);
 
-      expect(prisma.venue.findUnique).toHaveBeenCalledWith({ where: { id: '1' } });
+      expect(prisma.venue.findUnique).toHaveBeenCalledWith({
+        where: { id: '1' },
+      });
       expect(prisma.venue.update).toHaveBeenCalledWith({
         where: { id: '1' },
         data: updateDto,
@@ -261,7 +275,9 @@ describe('VenueService', () => {
 
       const result = await service.delete('1', userId);
 
-      expect(prisma.venue.findUnique).toHaveBeenCalledWith({ where: { id: '1' } });
+      expect(prisma.venue.findUnique).toHaveBeenCalledWith({
+        where: { id: '1' },
+      });
       expect(prisma.event.count).toHaveBeenCalledWith({
         where: { venueId: '1' },
       });
@@ -309,7 +325,9 @@ describe('VenueService', () => {
       prisma.venue.findUnique.mockResolvedValue(venue);
       prisma.event.count.mockResolvedValue(3);
 
-      await expect(service.delete('1', userId)).rejects.toThrow(BadRequestException);
+      await expect(service.delete('1', userId)).rejects.toThrow(
+        BadRequestException,
+      );
       expect(prisma.venue.delete).not.toHaveBeenCalled();
     });
   });

@@ -9,6 +9,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { VenueModule } from './venue/venue.module';
 import { PrismaModule } from './prisma.module';
 import { CategoryModule } from './category/category.module';
+import { OrderModule } from './order/order.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { CategoryModule } from './category/category.module';
     AuthModule,
     VenueModule,
     CategoryModule,
+    OrderModule,
   ],
   controllers: [],
   providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],

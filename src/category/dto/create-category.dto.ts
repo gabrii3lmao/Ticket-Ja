@@ -6,7 +6,6 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  IsUUID,
   Min,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
@@ -17,12 +16,16 @@ export class CreateCategoryDto {
   @IsString()
   name: string;
 
-  @ApiProperty({ description: 'Category description', required: false, example: 'Setor VIP com acesso a camarote' })
+  @ApiProperty({
+    description: 'Category description',
+    required: false,
+    example: 'Setor VIP com acesso a camarote',
+  })
   @IsOptional()
   @IsString()
   description?: string;
 
-  @ApiProperty({ description: 'Ticket price', example: 250.00 })
+  @ApiProperty({ description: 'Ticket price', example: 250.0 })
   @IsNotEmpty()
   @IsNumber()
   @Min(0)
@@ -34,13 +37,21 @@ export class CreateCategoryDto {
   @Min(0)
   quantity: number;
 
-  @ApiProperty({ description: 'Sales start date', required: false, example: '2026-08-01T00:00:00Z' })
+  @ApiProperty({
+    description: 'Sales start date',
+    required: false,
+    example: '2026-08-01T00:00:00Z',
+  })
   @IsOptional()
   @Type(() => Date)
   @IsDate()
   salesStart?: Date;
 
-  @ApiProperty({ description: 'Sales end date', required: false, example: '2026-08-30T23:59:59Z' })
+  @ApiProperty({
+    description: 'Sales end date',
+    required: false,
+    example: '2026-08-30T23:59:59Z',
+  })
   @IsOptional()
   @Type(() => Date)
   @IsDate()
