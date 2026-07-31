@@ -93,7 +93,7 @@ describe('CategoryController', () => {
         minPrice: 50,
         maxPrice: 500,
         sortBy: 'price',
-        sortOrder: 'asc',
+        sortOrder: 'asc' as const,
       };
       const result = {
         data: [],

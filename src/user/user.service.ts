@@ -48,14 +48,19 @@ export class UserService {
     if (!existingUser) {
       throw new NotFoundException('User with this ID not found');
     }
+
     const orderCount = await this.prisma.order.count({ where: { userId: id } });
     if (orderCount > 0) {
       throw new BadRequestException(
         `Cannot delete account: ${orderCount} order(s) still associated`,
       );
     }
-    await this.prisma.event.deleteMany({ where: { organizerId: id } });
-    return this.prisma.user.delete({ where: { id } });
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.event.deleteMany({ where: { organizerId: id } });
+      await tx.venue.deleteMany({ where: { organizerId: id } });
+      return tx.user.delete({ where: { id } });
+    });
   }
 
   private async ensureEmailIsUnique(email: string): Promise<void> {

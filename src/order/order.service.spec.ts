@@ -39,6 +39,13 @@ const mockPrisma = {
 
 const userId = 'user-uuid';
 
+const publishedEvent = {
+  id: 'event-uuid',
+  name: 'Rock in Rio',
+  status: 'PUBLISHED',
+  startDate: new Date('2099-01-01'),
+};
+
 const baseCategory = {
   id: 'cat-uuid',
   name: 'Pista Premium',
@@ -47,6 +54,7 @@ const baseCategory = {
   salesStart: null,
   salesEnd: null,
   eventId: 'event-uuid',
+  event: publishedEvent,
 };
 
 const createDto = {
@@ -117,6 +125,7 @@ describe('OrderService', () => {
       expect(mockPrisma.$transaction).toHaveBeenCalled();
       expect(mockTx.category.findUnique).toHaveBeenCalledWith({
         where: { id: 'cat-uuid' },
+        include: { event: true },
       });
       expect(mockTx.category.update).toHaveBeenCalledWith({
         where: { id: 'cat-uuid', quantity: { gte: 2 } },
@@ -163,6 +172,30 @@ describe('OrderService', () => {
       mockTx.category.findUnique.mockResolvedValue({
         ...baseCategory,
         salesEnd: new Date(Date.now() - 86400000),
+      });
+
+      await expect(service.create(createDto, userId)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockTx.category.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when the event is not published', async () => {
+      mockTx.category.findUnique.mockResolvedValue({
+        ...baseCategory,
+        event: { ...publishedEvent, status: 'DRAFT' },
+      });
+
+      await expect(service.create(createDto, userId)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockTx.category.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when the event has already begun', async () => {
+      mockTx.category.findUnique.mockResolvedValue({
+        ...baseCategory,
+        event: { ...publishedEvent, startDate: new Date('2000-01-01') },
       });
 
       await expect(service.create(createDto, userId)).rejects.toThrow(

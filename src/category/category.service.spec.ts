@@ -27,6 +27,7 @@ const mockPrisma = {
   },
   orderItem: {
     count: jest.fn(),
+    aggregate: jest.fn(),
   },
 };
 
@@ -75,6 +76,7 @@ describe('CategoryService', () => {
 
       prisma.event.findUnique.mockResolvedValue(baseEvent);
       prisma.category.aggregate.mockResolvedValue({ _sum: { quantity: 0 } });
+      prisma.orderItem.aggregate.mockResolvedValue({ _sum: { quantity: 0 } });
       prisma.category.create.mockResolvedValue(createdCategory);
 
       const result = await service.create(dto, eventId, userId);
@@ -85,6 +87,10 @@ describe('CategoryService', () => {
       });
       expect(prisma.category.aggregate).toHaveBeenCalledWith({
         where: { eventId },
+        _sum: { quantity: true },
+      });
+      expect(prisma.orderItem.aggregate).toHaveBeenCalledWith({
+        where: { category: { eventId } },
         _sum: { quantity: true },
       });
       expect(prisma.category.create).toHaveBeenCalledWith({
@@ -112,6 +118,36 @@ describe('CategoryService', () => {
 
       prisma.event.findUnique.mockResolvedValue(baseEvent);
       prisma.category.aggregate.mockResolvedValue({ _sum: { quantity: 1500 } });
+      prisma.orderItem.aggregate.mockResolvedValue({ _sum: { quantity: 0 } });
+
+      await expect(service.create(dto, eventId, userId)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.category.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when stock plus sold tickets exceed venue capacity', async () => {
+      const dto = { name: 'Pista Premium', price: 250, quantity: 200 };
+
+      prisma.event.findUnique.mockResolvedValue(baseEvent);
+      prisma.category.aggregate.mockResolvedValue({ _sum: { quantity: 1000 } });
+      prisma.orderItem.aggregate.mockResolvedValue({ _sum: { quantity: 900 } });
+
+      await expect(service.create(dto, eventId, userId)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.category.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when salesStart is on or after event startDate', async () => {
+      const dto = {
+        name: 'Pista Premium',
+        price: 250,
+        quantity: 500,
+        salesStart: eventStartDate,
+      };
+
+      prisma.event.findUnique.mockResolvedValue(baseEvent);
 
       await expect(service.create(dto, eventId, userId)).rejects.toThrow(
         BadRequestException,
@@ -163,6 +199,7 @@ describe('CategoryService', () => {
 
       prisma.event.findUnique.mockResolvedValue(baseEvent);
       prisma.category.aggregate.mockResolvedValue({ _sum: { quantity: 0 } });
+      prisma.orderItem.aggregate.mockResolvedValue({ _sum: { quantity: 0 } });
       prisma.category.create.mockResolvedValue(createdCategory);
 
       const result = await service.create(dto, eventId, userId);
@@ -298,6 +335,7 @@ describe('CategoryService', () => {
       prisma.event.findUnique.mockResolvedValue({
         id: eventId,
         organizerId: userId,
+        venue: { capacity: 2000 },
       });
       prisma.category.update.mockResolvedValue({
         ...existingCategory,
@@ -311,12 +349,90 @@ describe('CategoryService', () => {
       });
       expect(prisma.event.findUnique).toHaveBeenCalledWith({
         where: { id: eventId },
+        include: { venue: true },
       });
       expect(prisma.category.update).toHaveBeenCalledWith({
         where: { id: '1' },
         data: updateDto,
       });
       expect(result.name).toBe('Pista VIP');
+    });
+
+    it('should throw BadRequestException when new quantity exceeds venue capacity', async () => {
+      const existingCategory = {
+        id: '1',
+        name: 'Pista Premium',
+        price: 250,
+        quantity: 1000,
+        eventId,
+        createdAt: new Date(),
+      };
+      const updateDto = { quantity: 1000 };
+
+      prisma.category.findUnique.mockResolvedValue(existingCategory);
+      prisma.event.findUnique.mockResolvedValue({
+        id: eventId,
+        organizerId: userId,
+        startDate: eventStartDate,
+        venue: { capacity: 2000 },
+      });
+      prisma.category.aggregate.mockResolvedValue({ _sum: { quantity: 1000 } });
+      prisma.orderItem.aggregate.mockResolvedValue({
+        _sum: { quantity: 1500 },
+      });
+
+      await expect(service.update('1', userId, updateDto)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.category.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when salesEnd is after event startDate on update', async () => {
+      const existingCategory = {
+        id: '1',
+        name: 'Pista Premium',
+        price: 250,
+        quantity: 1000,
+        eventId,
+        createdAt: new Date(),
+      };
+      const updateDto = { salesEnd: new Date('2027-01-01') };
+
+      prisma.category.findUnique.mockResolvedValue(existingCategory);
+      prisma.event.findUnique.mockResolvedValue({
+        id: eventId,
+        organizerId: userId,
+        startDate: eventStartDate,
+      });
+
+      await expect(service.update('1', userId, updateDto)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.category.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when salesStart is on or after event startDate on update', async () => {
+      const existingCategory = {
+        id: '1',
+        name: 'Pista Premium',
+        price: 250,
+        quantity: 1000,
+        eventId,
+        createdAt: new Date(),
+      };
+      const updateDto = { salesStart: eventStartDate };
+
+      prisma.category.findUnique.mockResolvedValue(existingCategory);
+      prisma.event.findUnique.mockResolvedValue({
+        id: eventId,
+        organizerId: userId,
+        startDate: eventStartDate,
+      });
+
+      await expect(service.update('1', userId, updateDto)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.category.update).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException when category not found', async () => {

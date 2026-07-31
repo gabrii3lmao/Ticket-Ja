@@ -22,11 +22,19 @@ export class OrderService {
       for (const item of createOrderDto.items) {
         const category = await tx.category.findUnique({
           where: { id: item.categoryId },
+          include: { event: true },
         });
 
         if (!category) {
           throw new NotFoundException(
             `Category "${item.categoryId}" not found`,
+          );
+        }
+
+        // Event must be PUBLISHED to allow ticket sales
+        if (category.event.status !== 'PUBLISHED') {
+          throw new BadRequestException(
+            `Event "${category.event.name}" is not published (current status: ${category.event.status})`,
           );
         }
 
@@ -40,6 +48,12 @@ export class OrderService {
         if (category.salesEnd && now > category.salesEnd) {
           throw new BadRequestException(
             `Sales for "${category.name}" ended on ${category.salesEnd.toISOString()}`,
+          );
+        }
+
+        if (category.event.startDate && category.event.startDate < now) {
+          throw new BadRequestException(
+            `Event "${category.event.name}" has already begun`,
           );
         }
 

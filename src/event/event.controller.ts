@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -23,6 +24,7 @@ import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { Public } from 'src/auth/decorators/public.decorator';
 import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
 import { QueryEventDto } from './dto/query-event.dto';
+import { UpdateEventStatusDto } from './dto/update-event-status.dto';
 
 @ApiTags('event')
 @Controller('event')
@@ -83,5 +85,17 @@ export class EventController {
     @CurrentUser(ActiveUserPipe) userId: string,
   ) {
     return this.eventService.update(id, userId, data);
+  }
+
+  @Patch(':id/status')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update event status' })
+  updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateEventStatusDto,
+    @CurrentUser(ActiveUserPipe) userId: string,
+  ) {
+    return this.eventService.updateStatus(id, userId, dto.status);
   }
 }

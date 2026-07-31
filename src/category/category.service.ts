@@ -23,11 +23,25 @@ export class CategoryService {
       throw new ForbiddenException('Event not found or not yours');
     }
 
-    // 1. Category quantity cannot surpass Venue capacity (duuh)
-    const existingTotal = await this.prisma.category.aggregate({
+    // Category stock cannot exceed venue capacity
+    const stockTotal = await this.prisma.category.aggregate({
       where: { eventId },
       _sum: { quantity: true },
     });
+
+    const soldTotal = await this.prisma.orderItem.aggregate({
+      where: { category: { eventId } },
+      _sum: { quantity: true },
+    });
+
+    const allocated =
+      (stockTotal._sum.quantity ?? 0) + (soldTotal._sum.quantity ?? 0);
+
+    if (allocated + data.quantity > event.venue.capacity) {
+      throw new BadRequestException(
+        `Total tickets (${allocated + data.quantity}) exceeds venue capacity (${event.venue.capacity})`,
+      );
+    }
 
     // Date validation
     if (data.salesEnd && data.salesEnd > event.startDate) {
@@ -42,14 +56,13 @@ export class CategoryService {
       );
     }
 
-    const totalSold = existingTotal._sum.quantity ?? 0;
-    if (totalSold + data.quantity > event.venue.capacity) {
+    if (data.salesStart && data.salesStart >= event.startDate) {
       throw new BadRequestException(
-        `Total tickets (${totalSold + data.quantity}) exceeds venue capacity (${event.venue.capacity})`,
+        'Sales start date must be before the event start date',
       );
     }
 
-    return this.prisma.category.create({ data: { ...data, eventId: eventId } });
+    return this.prisma.category.create({ data: { ...data, eventId } });
   }
 
   async findAll(query: QueryCategoryDto, eventId: string) {
@@ -126,12 +139,55 @@ export class CategoryService {
 
     const event = await this.prisma.event.findUnique({
       where: { id: categoryExist?.eventId },
+      include: { venue: true },
     });
 
     if (!event || event.organizerId !== userId) {
       throw new ForbiddenException(
         'Category in this event not found or not yours',
       );
+    }
+
+    // Date validation
+    if (data.salesEnd && data.salesEnd > event.startDate) {
+      throw new BadRequestException(
+        'Sales end date must be before or on the event start date',
+      );
+    }
+
+    if (data.salesStart && data.salesEnd && data.salesStart >= data.salesEnd) {
+      throw new BadRequestException(
+        'Sales start date must be before sales end date',
+      );
+    }
+
+    if (data.salesStart && data.salesStart >= event.startDate) {
+      throw new BadRequestException(
+        'Sales start date must be before the event start date',
+      );
+    }
+
+    // Category stock cannot exceed venue capacity
+    const stockTotal = await this.prisma.category.aggregate({
+      where: { eventId: event.id },
+      _sum: { quantity: true },
+    });
+
+    const soldTotal = await this.prisma.orderItem.aggregate({
+      where: { category: { eventId: event.id } },
+      _sum: { quantity: true },
+    });
+
+    const allocated =
+      (stockTotal._sum.quantity ?? 0) + (soldTotal._sum.quantity ?? 0);
+
+    if (data.quantity !== undefined) {
+      const newAllocated = allocated - categoryExist.quantity + data.quantity;
+      if (newAllocated > event.venue.capacity) {
+        throw new BadRequestException(
+          `Total tickets (${newAllocated}) exceeds venue capacity (${event.venue.capacity})`,
+        );
+      }
     }
 
     return this.prisma.category.update({

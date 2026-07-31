@@ -1,5 +1,11 @@
 jest.mock('generated/prisma/client', () => ({
   PrismaClient: class {},
+  EventStatus: {
+    DRAFT: 'DRAFT',
+    PUBLISHED: 'PUBLISHED',
+    FINISHED: 'FINISHED',
+    CANCELED: 'CANCELED',
+  },
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
@@ -13,6 +19,7 @@ const mockEventService = {
   findAll: jest.fn(),
   update: jest.fn(),
   delete: jest.fn(),
+  updateStatus: jest.fn(),
 };
 
 const mockUserService = {
@@ -90,7 +97,7 @@ describe('EventController', () => {
         city: 'Rio',
         state: 'RJ',
         sortBy: 'name',
-        sortOrder: 'asc',
+        sortOrder: 'asc' as const,
       };
       const result = {
         data: [],
@@ -150,6 +157,24 @@ describe('EventController', () => {
       const result = await controller.update('1', dto, userId);
 
       expect(eventService.update).toHaveBeenCalledWith('1', userId, dto);
+      expect(result).toEqual(updatedEvent);
+    });
+  });
+
+  describe('updateStatus', () => {
+    it('should call eventService.updateStatus with id, userId, and status', async () => {
+      const dto = { status: 'PUBLISHED' as const };
+      const updatedEvent = { id: '1', status: 'PUBLISHED' };
+
+      mockEventService.updateStatus.mockResolvedValue(updatedEvent);
+
+      const result = await controller.updateStatus('1', dto, userId);
+
+      expect(eventService.updateStatus).toHaveBeenCalledWith(
+        '1',
+        userId,
+        'PUBLISHED',
+      );
       expect(result).toEqual(updatedEvent);
     });
   });

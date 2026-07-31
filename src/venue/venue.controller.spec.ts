@@ -99,7 +99,7 @@ describe('VenueController', () => {
         state: 'RJ',
         minCapacity: 1000,
         sortBy: 'name',
-        sortOrder: 'asc',
+        sortOrder: 'asc' as const,
       };
       const result = {
         data: [],

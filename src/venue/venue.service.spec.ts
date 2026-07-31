@@ -26,6 +26,12 @@ const mockPrisma = {
   event: {
     count: jest.fn(),
   },
+  category: {
+    aggregate: jest.fn(),
+  },
+  orderItem: {
+    aggregate: jest.fn(),
+  },
 };
 
 describe('VenueService', () => {
@@ -255,6 +261,59 @@ describe('VenueService', () => {
         service.update('1', userId, { name: 'Test' }),
       ).rejects.toThrow(ForbiddenException);
       expect(prisma.venue.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when reducing capacity below allocated tickets', async () => {
+      const existingVenue = {
+        id: '1',
+        name: 'Maracanã',
+        capacity: 50000,
+        organizerId: userId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      const updateDto = { capacity: 50000 };
+
+      prisma.venue.findUnique.mockResolvedValue(existingVenue);
+      prisma.category.aggregate.mockResolvedValue({
+        _sum: { quantity: 40000 },
+      });
+      prisma.orderItem.aggregate.mockResolvedValue({
+        _sum: { quantity: 15000 },
+      });
+
+      await expect(service.update('1', userId, updateDto)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.venue.update).not.toHaveBeenCalled();
+    });
+
+    it('should allow increasing capacity above allocated tickets', async () => {
+      const existingVenue = {
+        id: '1',
+        name: 'Maracanã',
+        capacity: 50000,
+        organizerId: userId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      const updateDto = { capacity: 100000 };
+
+      prisma.venue.findUnique.mockResolvedValue(existingVenue);
+      prisma.category.aggregate.mockResolvedValue({ _sum: { quantity: 0 } });
+      prisma.orderItem.aggregate.mockResolvedValue({ _sum: { quantity: 0 } });
+      prisma.venue.update.mockResolvedValue({
+        ...existingVenue,
+        ...updateDto,
+      });
+
+      const result = await service.update('1', userId, updateDto);
+
+      expect(prisma.venue.update).toHaveBeenCalledWith({
+        where: { id: '1' },
+        data: updateDto,
+      });
+      expect(result.capacity).toBe(100000);
     });
   });
 

@@ -80,6 +80,27 @@ export class VenueService {
     if (!venue || venue.organizerId !== userId) {
       throw new ForbiddenException('Venue not found or not yours');
     }
+
+    // validate Venue capacity
+    if (data.capacity !== undefined) {
+      const stockTotal = await this.prisma.category.aggregate({
+        where: { event: { venueId: id } },
+        _sum: { quantity: true },
+      });
+      const soldTotal = await this.prisma.orderItem.aggregate({
+        where: { category: { event: { venueId: id } } },
+        _sum: { quantity: true },
+      });
+      const allocated =
+        (stockTotal._sum.quantity ?? 0) + (soldTotal._sum.quantity ?? 0);
+
+      if (allocated > data.capacity) {
+        throw new BadRequestException(
+          `Cannot reduce capacity below allocated tickets (${allocated})`,
+        );
+      }
+    }
+
     return this.prisma.venue.update({ where: { id }, data });
   }
 

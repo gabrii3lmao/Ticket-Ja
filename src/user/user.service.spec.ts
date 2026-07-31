@@ -17,12 +17,16 @@ import { PrismaService } from 'src/prisma.service';
 import * as bcrypt from 'bcrypt';
 
 const mockPrisma = {
+  $transaction: jest.fn(),
   user: {
     findUnique: jest.fn(),
     create: jest.fn(),
     delete: jest.fn(),
   },
   event: {
+    deleteMany: jest.fn(),
+  },
+  venue: {
     deleteMany: jest.fn(),
   },
   order: {
@@ -175,14 +179,22 @@ describe('UserService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(user);
       mockPrisma.order.count.mockResolvedValue(0);
       mockPrisma.event.deleteMany.mockResolvedValue({ count: 1 });
+      mockPrisma.venue.deleteMany.mockResolvedValue({ count: 1 });
       mockPrisma.user.delete.mockResolvedValue(user);
+      mockPrisma.$transaction.mockImplementation(
+        (cb: (tx: typeof mockPrisma) => Promise<unknown>) => cb(mockPrisma),
+      );
 
       const result = await service.deleteUser('1');
 
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
       expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
         where: { id: '1' },
       });
       expect(mockPrisma.event.deleteMany).toHaveBeenCalledWith({
+        where: { organizerId: '1' },
+      });
+      expect(mockPrisma.venue.deleteMany).toHaveBeenCalledWith({
         where: { organizerId: '1' },
       });
       expect(mockPrisma.user.delete).toHaveBeenCalledWith({
