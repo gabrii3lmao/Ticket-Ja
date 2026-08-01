@@ -9,6 +9,7 @@ import { CreateEventDto } from './dto/create-event.dto';
 import { Event, EventStatus } from 'generated/prisma/client';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { QueryEventDto } from './dto/query-event.dto';
+import { assertEndDateAfterStartDate } from 'src/common/validators/event.validator';
 
 @Injectable()
 export class EventService {
@@ -21,21 +22,8 @@ export class EventService {
   constructor(private prisma: PrismaService) {}
 
   async create(data: CreateEventDto, userId: string): Promise<Event> {
-    if (data.endDate && !(data.endDate >= data.startDate)) {
-      throw new BadRequestException(
-        `Event end date must be on or after the start date`,
-      );
-    }
-
-    const venue = await this.prisma.venue.findUnique({
-      where: { id: data.venueId },
-    });
-
-    if (!venue) throw new NotFoundException('Venue not found');
-
-    if (venue.organizerId !== userId) {
-      throw new ForbiddenException('Venue not found or not yours');
-    }
+    assertEndDateAfterStartDate(data.startDate, data.endDate);
+    await this.validateVenueOwnership(data.venueId, userId);
 
     return this.prisma.event.create({
       data: { ...data, organizerId: userId },
@@ -105,39 +93,17 @@ export class EventService {
     userId: string,
     data: UpdateEventDto,
   ): Promise<Event> {
-    const eventExist = await this.prisma.event.findUnique({ where: { id } });
+    const eventExist = await this.getOwnedEvent(id, userId);
 
-    if (!eventExist || eventExist.organizerId !== userId) {
-      throw new NotFoundException('Event not found or not yours');
-    }
+    assertEndDateAfterStartDate(eventExist.startDate, data.endDate);
 
-    if (data.endDate && !(data.endDate >= eventExist.startDate)) {
-      throw new BadRequestException(
-        `Event end date must be on or after the start date`,
-      );
-    }
-
-    if (data.venueId) {
-      const venue = await this.prisma.venue.findUnique({
-        where: { id: data.venueId },
-      });
-
-      if (!venue) throw new NotFoundException('Venue not found');
-
-      if (venue.organizerId !== userId) {
-        throw new ForbiddenException(`Venue not found or not yours`);
-      }
-    }
+    if (data.venueId) await this.validateVenueOwnership(data.venueId, userId);
 
     return this.prisma.event.update({ where: { id }, data: { ...data } });
   }
 
   async delete(id: string, userId: string): Promise<Event> {
-    const eventExist = await this.prisma.event.findUnique({ where: { id } });
-    if (!eventExist || eventExist.organizerId !== userId) {
-      throw new NotFoundException('Event not found or not yours');
-    }
-
+    const eventExist = await this.getOwnedEvent(id, userId);
     const categoryCount = await this.prisma.category.count({
       where: { eventId: eventExist.id },
     });
@@ -151,11 +117,7 @@ export class EventService {
   }
 
   async updateStatus(id: string, userId: string, status: EventStatus) {
-    const event = await this.prisma.event.findUnique({ where: { id } });
-    if (!event || event.organizerId !== userId) {
-      throw new NotFoundException('Event not found or not yours');
-    }
-
+    const event = await this.getOwnedEvent(id, userId);
     if (!this.ALLOWED_TRANSITIONS[event.status].includes(status)) {
       throw new BadRequestException(
         `Cannot transition event from ${event.status} to ${status}`,
@@ -174,5 +136,27 @@ export class EventService {
     }
 
     return this.prisma.event.update({ where: { id }, data: { status } });
+  }
+
+  private async getOwnedEvent(id: string, userId: string) {
+    const event = await this.prisma.event.findUnique({ where: { id } });
+    if (!event || event.organizerId !== userId) {
+      throw new NotFoundException('Event not found or not yours');
+    }
+    return event;
+  }
+
+  private async validateVenueOwnership(venueId: string, userId: string) {
+    const venue = await this.prisma.venue.findUnique({
+      where: { id: venueId },
+    });
+
+    if (!venue) throw new NotFoundException('Venue not found');
+
+    if (venue.organizerId !== userId) {
+      throw new ForbiddenException('Venue not found or not yours');
+    }
+
+    return venue;
   }
 }

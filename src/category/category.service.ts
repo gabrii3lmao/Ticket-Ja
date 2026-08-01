@@ -8,6 +8,7 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { PrismaService } from 'src/prisma.service';
 import { QueryCategoryDto } from './dto/query-category.dto';
+import { assertSalesWindow } from 'src/common/validators/event.validator';
 
 @Injectable()
 export class CategoryService {
@@ -44,23 +45,7 @@ export class CategoryService {
     }
 
     // Date validation
-    if (data.salesEnd && data.salesEnd > event.startDate) {
-      throw new BadRequestException(
-        'Sales end date must be before or on the event start date',
-      );
-    }
-
-    if (data.salesStart && data.salesEnd && data.salesStart >= data.salesEnd) {
-      throw new BadRequestException(
-        'Sales start date must be before sales end date',
-      );
-    }
-
-    if (data.salesStart && data.salesStart >= event.startDate) {
-      throw new BadRequestException(
-        'Sales start date must be before the event start date',
-      );
-    }
+    assertSalesWindow(data.salesStart, data.salesEnd, event.startDate);
 
     return this.prisma.category.create({ data: { ...data, eventId } });
   }
@@ -149,23 +134,7 @@ export class CategoryService {
     }
 
     // Date validation
-    if (data.salesEnd && data.salesEnd > event.startDate) {
-      throw new BadRequestException(
-        'Sales end date must be before or on the event start date',
-      );
-    }
-
-    if (data.salesStart && data.salesEnd && data.salesStart >= data.salesEnd) {
-      throw new BadRequestException(
-        'Sales start date must be before sales end date',
-      );
-    }
-
-    if (data.salesStart && data.salesStart >= event.startDate) {
-      throw new BadRequestException(
-        'Sales start date must be before the event start date',
-      );
-    }
+    assertSalesWindow(data.salesStart, data.salesEnd, event.startDate);
 
     // Category stock cannot exceed venue capacity
     const stockTotal = await this.prisma.category.aggregate({

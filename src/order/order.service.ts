@@ -144,7 +144,7 @@ export class OrderService {
     });
   }
 
-  async persistOrder(
+  private async persistOrder(
     tx: Prisma.TransactionClient,
     userId: string,
     itemsData: Array<{ category: Category; quantity: number }>,

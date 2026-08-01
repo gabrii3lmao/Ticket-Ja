@@ -206,6 +206,49 @@ describe('CategoryService', () => {
 
       expect(result).toEqual(createdCategory);
     });
+
+    it('should create category when salesEnd equals the event startDate', async () => {
+      const dto = {
+        name: 'Pista Premium',
+        price: 250,
+        quantity: 500,
+        salesEnd: eventStartDate,
+      };
+      const createdCategory = {
+        id: 'uuid',
+        ...dto,
+        eventId,
+        createdAt: new Date(),
+      };
+
+      prisma.event.findUnique.mockResolvedValue(baseEvent);
+      prisma.category.aggregate.mockResolvedValue({ _sum: { quantity: 0 } });
+      prisma.orderItem.aggregate.mockResolvedValue({ _sum: { quantity: 0 } });
+      prisma.category.create.mockResolvedValue(createdCategory);
+
+      const result = await service.create(dto, eventId, userId);
+
+      expect(prisma.category.create).toHaveBeenCalled();
+      expect(result).toEqual(createdCategory);
+    });
+
+    it('should throw BadRequestException when salesStart equals salesEnd', async () => {
+      const salesDate = new Date('2026-08-10');
+      const dto = {
+        name: 'Pista Premium',
+        price: 250,
+        quantity: 500,
+        salesStart: salesDate,
+        salesEnd: new Date(salesDate),
+      };
+
+      prisma.event.findUnique.mockResolvedValue(baseEvent);
+
+      await expect(service.create(dto, eventId, userId)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.category.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('findOne', () => {
@@ -314,6 +357,38 @@ describe('CategoryService', () => {
       expect(prisma.category.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           orderBy: { price: 'asc' },
+        }),
+      );
+    });
+
+    it('should filter categories by salesStartDate', async () => {
+      const categories = [{ id: '1', name: 'Pista Premium' }];
+      prisma.$transaction.mockResolvedValue([categories, 1]);
+
+      await service.findAll({ salesStartDate: '2026-08-01' }, eventId);
+
+      expect(prisma.category.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            eventId,
+            salesStart: { gte: new Date('2026-08-01') },
+          },
+        }),
+      );
+    });
+
+    it('should filter categories by salesEndDate', async () => {
+      const categories = [{ id: '1', name: 'Pista Premium' }];
+      prisma.$transaction.mockResolvedValue([categories, 1]);
+
+      await service.findAll({ salesEndDate: '2026-09-01' }, eventId);
+
+      expect(prisma.category.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            eventId,
+            salesEnd: { lte: new Date('2026-09-01') },
+          },
         }),
       );
     });
@@ -464,6 +539,38 @@ describe('CategoryService', () => {
         service.update('1', userId, { name: 'Test' }),
       ).rejects.toThrow(ForbiddenException);
       expect(prisma.category.update).not.toHaveBeenCalled();
+    });
+
+    it('should update category when salesEnd equals the event startDate', async () => {
+      const existingCategory = {
+        id: '1',
+        name: 'Pista Premium',
+        price: 250,
+        quantity: 1000,
+        eventId,
+        createdAt: new Date(),
+      };
+      const updateDto = { salesEnd: eventStartDate };
+
+      prisma.category.findUnique.mockResolvedValue(existingCategory);
+      prisma.event.findUnique.mockResolvedValue({
+        id: eventId,
+        organizerId: userId,
+        startDate: eventStartDate,
+        venue: { capacity: 2000 },
+      });
+      prisma.category.update.mockResolvedValue({
+        ...existingCategory,
+        ...updateDto,
+      });
+
+      const result = await service.update('1', userId, updateDto);
+
+      expect(prisma.category.update).toHaveBeenCalledWith({
+        where: { id: '1' },
+        data: updateDto,
+      });
+      expect(result.salesEnd).toEqual(updateDto.salesEnd);
     });
   });
 

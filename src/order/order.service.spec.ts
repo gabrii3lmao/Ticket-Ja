@@ -308,4 +308,99 @@ describe('OrderService', () => {
       expect(result.orderItems[0].tickets).toHaveLength(2);
     });
   });
+
+  describe('create - date boundaries', () => {
+    const SYSTEM_TIME = new Date('2026-06-01T12:00:00.000Z');
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.setSystemTime(SYSTEM_TIME);
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('should create an order when salesStart equals now', async () => {
+      mockTx.category.findUnique.mockResolvedValue({
+        ...baseCategory,
+        salesStart: new Date(SYSTEM_TIME),
+      });
+      mockTx.category.update.mockResolvedValue({
+        ...baseCategory,
+        quantity: 98,
+      });
+      mockTx.order.create.mockResolvedValue({ id: 'order-uuid', total: 525 });
+      mockTx.payment.create.mockResolvedValue({});
+
+      await expect(service.create(createDto, userId)).resolves.toBeDefined();
+
+      expect(mockTx.order.create).toHaveBeenCalled();
+      expect(mockTx.payment.create).toHaveBeenCalled();
+    });
+
+    it('should create an order when salesEnd equals now', async () => {
+      mockTx.category.findUnique.mockResolvedValue({
+        ...baseCategory,
+        salesEnd: new Date(SYSTEM_TIME),
+      });
+      mockTx.category.update.mockResolvedValue({
+        ...baseCategory,
+        quantity: 98,
+      });
+      mockTx.order.create.mockResolvedValue({ id: 'order-uuid', total: 525 });
+      mockTx.payment.create.mockResolvedValue({});
+
+      await expect(service.create(createDto, userId)).resolves.toBeDefined();
+
+      expect(mockTx.order.create).toHaveBeenCalled();
+      expect(mockTx.payment.create).toHaveBeenCalled();
+    });
+
+    it('should create an order when event.startDate equals now', async () => {
+      mockTx.category.findUnique.mockResolvedValue({
+        ...baseCategory,
+        event: { ...publishedEvent, startDate: new Date(SYSTEM_TIME) },
+      });
+      mockTx.category.update.mockResolvedValue({
+        ...baseCategory,
+        quantity: 98,
+      });
+      mockTx.order.create.mockResolvedValue({ id: 'order-uuid', total: 525 });
+      mockTx.payment.create.mockResolvedValue({});
+
+      await expect(service.create(createDto, userId)).resolves.toBeDefined();
+
+      expect(mockTx.order.create).toHaveBeenCalled();
+      expect(mockTx.payment.create).toHaveBeenCalled();
+    });
+  });
+
+  describe('create - partial failure', () => {
+    it('should not create order or payment when a later item runs out of stock', async () => {
+      mockTx.category.findUnique.mockResolvedValue(baseCategory);
+      mockTx.category.update
+        .mockResolvedValueOnce({ ...baseCategory, quantity: 98 })
+        .mockRejectedValueOnce(
+          new PrismaClientKnownRequestError('Record not found', {
+            code: 'P2025',
+          }),
+        );
+
+      const multiDto = {
+        items: [
+          { categoryId: 'cat-uuid', quantity: 2 },
+          { categoryId: 'cat-uuid', quantity: 1 },
+        ],
+      };
+
+      await expect(service.create(multiDto, userId)).rejects.toThrow(
+        BadRequestException,
+      );
+
+      expect(mockTx.category.update).toHaveBeenCalledTimes(2);
+      expect(mockTx.order.create).not.toHaveBeenCalled();
+      expect(mockTx.payment.create).not.toHaveBeenCalled();
+    });
+  });
 });

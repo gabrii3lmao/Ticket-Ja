@@ -127,6 +127,30 @@ describe('EventService', () => {
       );
       expect(prisma.event.create).not.toHaveBeenCalled();
     });
+
+    it('should create an event when endDate equals startDate', async () => {
+      const dto = {
+        name: 'Rock in Rio',
+        artists: ['Artista'],
+        startDate: new Date('2026-12-01'),
+        endDate: new Date('2026-12-01'),
+        venueId: 'venue-uuid',
+      };
+      const createdEvent = { id: 'uuid', ...dto, organizerId: userId };
+
+      prisma.venue.findUnique.mockResolvedValue({
+        id: 'venue-uuid',
+        organizerId: userId,
+      });
+      prisma.event.create.mockResolvedValue(createdEvent);
+
+      const result = await service.create(dto, userId);
+
+      expect(prisma.event.create).toHaveBeenCalledWith({
+        data: { ...dto, organizerId: userId },
+      });
+      expect(result).toEqual(createdEvent);
+    });
   });
 
   describe('findOne', () => {
@@ -233,6 +257,36 @@ describe('EventService', () => {
       expect(prisma.event.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           orderBy: { name: 'asc' },
+        }),
+      );
+    });
+
+    it('should filter events by startDate', async () => {
+      const events = [{ id: '1', name: 'Rock in Rio' }];
+      prisma.$transaction.mockResolvedValue([events, 1]);
+
+      await service.findAll({ startDate: '2026-09-15' });
+
+      expect(prisma.event.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            startDate: { gte: new Date('2026-09-15') },
+          },
+        }),
+      );
+    });
+
+    it('should filter events by endDate', async () => {
+      const events = [{ id: '1', name: 'Rock in Rio' }];
+      prisma.$transaction.mockResolvedValue([events, 1]);
+
+      await service.findAll({ endDate: '2026-09-16' });
+
+      expect(prisma.event.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            endDate: { lte: new Date('2026-09-16') },
+          },
         }),
       );
     });
@@ -359,6 +413,27 @@ describe('EventService', () => {
         data: updateDto,
       });
       expect(result.venueId).toBe('new-venue');
+    });
+
+    it('should allow endDate equal to the existing startDate', async () => {
+      const existingEvent = {
+        id: '1',
+        name: 'Rock in Rio',
+        startDate: new Date('2026-12-01'),
+        organizerId: userId,
+      };
+      const updateDto = { endDate: new Date('2026-12-01') };
+
+      prisma.event.findUnique.mockResolvedValue(existingEvent);
+      prisma.event.update.mockResolvedValue({ ...existingEvent, ...updateDto });
+
+      const result = await service.update('1', userId, updateDto);
+
+      expect(prisma.event.update).toHaveBeenCalledWith({
+        where: { id: '1' },
+        data: updateDto,
+      });
+      expect(result.endDate).toEqual(updateDto.endDate);
     });
   });
 
