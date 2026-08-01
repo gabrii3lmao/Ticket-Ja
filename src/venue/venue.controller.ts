@@ -30,7 +30,6 @@ export class VenueController {
   constructor(private readonly venueService: VenueService) {}
 
   @Post()
-  @HttpCode(HttpStatus.CREATED)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new venue' })
   @ApiResponse({ status: 201, description: 'Venue created successfully' })
@@ -43,7 +42,6 @@ export class VenueController {
 
   @Public()
   @Get()
-  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'List all venues' })
   @ApiResponse({ status: 200, description: 'Returns paginated list of venues' })
   findAll(@Query() query: QueryVenueDto) {
@@ -52,7 +50,6 @@ export class VenueController {
 
   @Public()
   @Get(':id')
-  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get venue by ID' })
   @ApiResponse({ status: 200, description: 'Returns the venue' })
   @ApiResponse({ status: 404, description: 'Venue not found' })
@@ -61,7 +58,6 @@ export class VenueController {
   }
 
   @Put(':id')
-  @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a venue' })
   @ApiResponse({ status: 200, description: 'Venue updated successfully' })

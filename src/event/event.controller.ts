@@ -31,8 +31,7 @@ import { UpdateEventStatusDto } from './dto/update-event-status.dto';
 export class EventController {
   constructor(private readonly eventService: EventService) {}
 
-  @Post('')
-  @HttpCode(HttpStatus.CREATED)
+  @Post()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new event' })
   @ApiResponse({ status: 201, description: 'Event created successfully' })
@@ -45,8 +44,7 @@ export class EventController {
   }
 
   @Public()
-  @Get('')
-  @HttpCode(HttpStatus.OK)
+  @Get()
   @ApiOperation({ summary: 'Get all events' })
   @ApiResponse({ status: 200, description: 'Returns list of events' })
   getAll(@Query() paginationDto: QueryEventDto) {
@@ -55,7 +53,6 @@ export class EventController {
 
   @Public()
   @Get(':id')
-  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get event by ID' })
   @ApiResponse({ status: 200, description: 'Returns the event' })
   @ApiResponse({ status: 404, description: 'Event not found' })
@@ -74,7 +71,6 @@ export class EventController {
   }
 
   @Put(':id')
-  @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update an event' })
   @ApiResponse({ status: 200, description: 'Event updated successfully' })
@@ -88,7 +84,6 @@ export class EventController {
   }
 
   @Patch(':id/status')
-  @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update event status' })
   updateStatus(

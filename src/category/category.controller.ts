@@ -30,7 +30,6 @@ export class CategoryController {
   constructor(private readonly categoryService: CategoryService) {}
 
   @Post()
-  @HttpCode(HttpStatus.CREATED)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new category' })
   @ApiResponse({ status: 201, description: 'Category created successfully' })
@@ -44,7 +43,6 @@ export class CategoryController {
 
   @Public()
   @Get()
-  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'List all categories' })
   @ApiResponse({
     status: 200,
@@ -56,7 +54,6 @@ export class CategoryController {
 
   @Public()
   @Get(':id')
-  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get category by ID' })
   @ApiResponse({ status: 200, description: 'Returns the category' })
   @ApiResponse({ status: 404, description: 'Category not found' })
@@ -65,7 +62,6 @@ export class CategoryController {
   }
 
   @Patch(':id')
-  @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a category' })
   @ApiResponse({ status: 200, description: 'Category updated successfully' })
