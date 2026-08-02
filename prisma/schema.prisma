@@ -127,6 +127,7 @@ model Ticket {
   qrCode    String       @unique @db.VarChar(255)
   code      String       @unique @db.VarChar(100)
   status    TicketStatus @default(VALID)
+  usedAt    DateTime?
   createdAt DateTime     @default(now())
 
   userId String

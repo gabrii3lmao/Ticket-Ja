@@ -97,6 +97,7 @@ describe('TicketService', () => {
 
       expect(mockPrisma.ticket.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           where: expect.objectContaining({ userId }),
         }),
       );
@@ -114,6 +115,7 @@ describe('TicketService', () => {
 
       expect(mockPrisma.ticket.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           where: expect.objectContaining({ status: 'USED', userId }),
         }),
       );
@@ -127,6 +129,7 @@ describe('TicketService', () => {
 
       expect(mockPrisma.ticket.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           where: expect.objectContaining({
             orderItem: { orderId: 'order-uuid' },
           }),
@@ -142,6 +145,7 @@ describe('TicketService', () => {
 
       expect(mockPrisma.ticket.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           where: expect.objectContaining({ code: 'TKT-ABC' }),
         }),
       );
