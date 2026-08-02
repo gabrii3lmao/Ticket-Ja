@@ -50,16 +50,24 @@ export class OrderService {
     tx: Prisma.TransactionClient,
     items: CreateOrderDto['items'],
   ): Promise<Array<{ category: Category; quantity: number }>> {
-    const itemsData: Array<{ category: Category; quantity: number }> = [];
+    const itemsById = items.reduce<Map<string, number>>((acc, item) => {
+      acc.set(item.categoryId, (acc.get(item.categoryId) ?? 0) + item.quantity);
+      return acc;
+    }, new Map());
 
-    for (const item of items) {
-      const category = await tx.category.findUnique({
-        where: { id: item.categoryId },
-        include: { event: true },
-      });
+    const categories = await tx.category.findMany({
+      where: { id: { in: [...itemsById.keys()] } },
+      include: { event: true },
+    });
+
+    const categoryMap = new Map(categories.map((c) => [c.id, c]));
+    const now = new Date();
+
+    for (const [categoryId, quantity] of itemsById) {
+      const category = categoryMap.get(categoryId);
 
       if (!category) {
-        throw new NotFoundException(`Category "${item.categoryId}" not found`);
+        throw new NotFoundException(`Category "${categoryId}" not found`);
       }
 
       // Event must be PUBLISHED to allow ticket sales
@@ -70,7 +78,6 @@ export class OrderService {
       }
 
       // validate sales window
-      const now = new Date();
       if (category.salesStart && now < category.salesStart) {
         throw new BadRequestException(
           `Sales for "${category.name}" start on ${category.salesStart.toISOString()}`,
@@ -88,29 +95,41 @@ export class OrderService {
         );
       }
 
-      // atomic decrement with stock guard
-      try {
-        await tx.category.update({
-          where: { id: item.categoryId, quantity: { gte: item.quantity } },
-          data: { quantity: { decrement: item.quantity } },
-        });
-      } catch (error) {
-        if (
-          error instanceof PrismaClientKnownRequestError &&
-          error.code === 'P2025'
-        ) {
-          throw new BadRequestException(
-            `Insufficient tickets for "${category.name}" ` +
-              `(requested: ${item.quantity}, available: ${category.quantity})`,
-          );
-        }
-        throw error;
+      if (category.quantity < quantity) {
+        throw new BadRequestException(
+          `Insufficient tickets for "${category.name}" (requested: ${quantity}, available: ${category.quantity})`,
+        );
       }
-
-      itemsData.push({ category, quantity: item.quantity });
     }
 
-    return itemsData;
+    await Promise.all(
+      [...itemsById].map(async ([categoryId, quantity]) => {
+        const category = categoryMap.get(categoryId)!;
+
+        try {
+          await tx.category.update({
+            where: { id: categoryId, quantity: { gte: quantity } },
+            data: { quantity: { decrement: quantity } },
+          });
+        } catch (error) {
+          if (
+            error instanceof PrismaClientKnownRequestError &&
+            error.code === 'P2025'
+          ) {
+            throw new BadRequestException(
+              `Insufficient tickets for "${category.name}" ` +
+                `(requested: ${quantity}, available: ${category.quantity})`,
+            );
+          }
+          throw error;
+        }
+      }),
+    );
+
+    return [...itemsById].map(([categoryId, quantity]) => ({
+      category: categoryMap.get(categoryId)!,
+      quantity,
+    }));
   }
 
   private calculateAmount(

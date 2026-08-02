@@ -365,7 +365,10 @@ describe('CategoryService', () => {
       const categories = [{ id: '1', name: 'Pista Premium' }];
       prisma.$transaction.mockResolvedValue([categories, 1]);
 
-      await service.findAll({ salesStartDate: '2026-08-01' }, eventId);
+      await service.findAll(
+        { salesStartDate: new Date('2026-08-01') },
+        eventId,
+      );
 
       expect(prisma.category.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -381,7 +384,7 @@ describe('CategoryService', () => {
       const categories = [{ id: '1', name: 'Pista Premium' }];
       prisma.$transaction.mockResolvedValue([categories, 1]);
 
-      await service.findAll({ salesEndDate: '2026-09-01' }, eventId);
+      await service.findAll({ salesEndDate: new Date('2026-09-01') }, eventId);
 
       expect(prisma.category.findMany).toHaveBeenCalledWith(
         expect.objectContaining({

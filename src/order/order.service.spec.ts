@@ -22,7 +22,7 @@ import { PrismaService } from 'src/prisma.service';
 
 const mockTx = {
   category: {
-    findUnique: jest.fn(),
+    findMany: jest.fn(),
     update: jest.fn(),
   },
   order: {
@@ -57,6 +57,12 @@ const baseCategory = {
   event: publishedEvent,
 };
 
+const baseCategory2 = {
+  ...baseCategory,
+  id: 'cat-uuid-2',
+  name: 'Camarote',
+};
+
 const createDto = {
   items: [{ categoryId: 'cat-uuid', quantity: 2 }],
 };
@@ -85,7 +91,7 @@ describe('OrderService', () => {
 
   describe('create', () => {
     it('should create an order with items, tickets and payment', async () => {
-      mockTx.category.findUnique.mockResolvedValue(baseCategory);
+      mockTx.category.findMany.mockResolvedValue([baseCategory]);
       mockTx.category.update.mockResolvedValue({
         ...baseCategory,
         quantity: 98,
@@ -123,8 +129,8 @@ describe('OrderService', () => {
       const result = await service.create(createDto, userId);
 
       expect(mockPrisma.$transaction).toHaveBeenCalled();
-      expect(mockTx.category.findUnique).toHaveBeenCalledWith({
-        where: { id: 'cat-uuid' },
+      expect(mockTx.category.findMany).toHaveBeenCalledWith({
+        where: { id: { in: ['cat-uuid'] } },
         include: { event: true },
       });
       expect(mockTx.category.update).toHaveBeenCalledWith({
@@ -147,7 +153,7 @@ describe('OrderService', () => {
     });
 
     it('should throw NotFoundException when category does not exist', async () => {
-      mockTx.category.findUnique.mockResolvedValue(null);
+      mockTx.category.findMany.mockResolvedValue([]);
 
       await expect(service.create(createDto, userId)).rejects.toThrow(
         NotFoundException,
@@ -157,10 +163,12 @@ describe('OrderService', () => {
     });
 
     it('should throw BadRequestException when sales have not started yet', async () => {
-      mockTx.category.findUnique.mockResolvedValue({
-        ...baseCategory,
-        salesStart: new Date(Date.now() + 86400000),
-      });
+      mockTx.category.findMany.mockResolvedValue([
+        {
+          ...baseCategory,
+          salesStart: new Date(Date.now() + 86400000),
+        },
+      ]);
 
       await expect(service.create(createDto, userId)).rejects.toThrow(
         BadRequestException,
@@ -169,10 +177,12 @@ describe('OrderService', () => {
     });
 
     it('should throw BadRequestException when sales have ended', async () => {
-      mockTx.category.findUnique.mockResolvedValue({
-        ...baseCategory,
-        salesEnd: new Date(Date.now() - 86400000),
-      });
+      mockTx.category.findMany.mockResolvedValue([
+        {
+          ...baseCategory,
+          salesEnd: new Date(Date.now() - 86400000),
+        },
+      ]);
 
       await expect(service.create(createDto, userId)).rejects.toThrow(
         BadRequestException,
@@ -181,10 +191,12 @@ describe('OrderService', () => {
     });
 
     it('should throw BadRequestException when the event is not published', async () => {
-      mockTx.category.findUnique.mockResolvedValue({
-        ...baseCategory,
-        event: { ...publishedEvent, status: 'DRAFT' },
-      });
+      mockTx.category.findMany.mockResolvedValue([
+        {
+          ...baseCategory,
+          event: { ...publishedEvent, status: 'DRAFT' },
+        },
+      ]);
 
       await expect(service.create(createDto, userId)).rejects.toThrow(
         BadRequestException,
@@ -193,10 +205,12 @@ describe('OrderService', () => {
     });
 
     it('should throw BadRequestException when the event has already begun', async () => {
-      mockTx.category.findUnique.mockResolvedValue({
-        ...baseCategory,
-        event: { ...publishedEvent, startDate: new Date('2000-01-01') },
-      });
+      mockTx.category.findMany.mockResolvedValue([
+        {
+          ...baseCategory,
+          event: { ...publishedEvent, startDate: new Date('2000-01-01') },
+        },
+      ]);
 
       await expect(service.create(createDto, userId)).rejects.toThrow(
         BadRequestException,
@@ -205,7 +219,7 @@ describe('OrderService', () => {
     });
 
     it('should throw BadRequestException when stock is insufficient', async () => {
-      mockTx.category.findUnique.mockResolvedValue(baseCategory);
+      mockTx.category.findMany.mockResolvedValue([baseCategory]);
       const error = new PrismaClientKnownRequestError('Record not found', {
         code: 'P2025',
       });
@@ -218,7 +232,7 @@ describe('OrderService', () => {
     });
 
     it('should rethrow unexpected errors from stock decrement', async () => {
-      mockTx.category.findUnique.mockResolvedValue(baseCategory);
+      mockTx.category.findMany.mockResolvedValue([baseCategory]);
       const unexpectedError = new Error('DB connection lost');
       mockTx.category.update.mockRejectedValue(unexpectedError);
 
@@ -229,7 +243,7 @@ describe('OrderService', () => {
     });
 
     it('should handle multiple items in a single order', async () => {
-      mockTx.category.findUnique.mockResolvedValue(baseCategory);
+      mockTx.category.findMany.mockResolvedValue([baseCategory, baseCategory2]);
       mockTx.category.update.mockResolvedValue({
         ...baseCategory,
         quantity: 90,
@@ -267,19 +281,72 @@ describe('OrderService', () => {
       const multiDto = {
         items: [
           { categoryId: 'cat-uuid', quantity: 2 },
-          { categoryId: 'cat-uuid', quantity: 1 },
+          { categoryId: 'cat-uuid-2', quantity: 1 },
         ],
       };
 
       const result = await service.create(multiDto, userId);
 
-      expect(mockTx.category.findUnique).toHaveBeenCalledTimes(2);
+      expect(mockTx.category.findMany).toHaveBeenCalledWith({
+        where: { id: { in: ['cat-uuid', 'cat-uuid-2'] } },
+        include: { event: true },
+      });
       expect(mockTx.category.update).toHaveBeenCalledTimes(2);
       expect(result).toEqual(fakeOrder);
     });
 
+    it('should aggregate duplicate categoryIds into a single order item', async () => {
+      mockTx.category.findMany.mockResolvedValue([baseCategory]);
+      mockTx.category.update.mockResolvedValue({
+        ...baseCategory,
+        quantity: 97,
+      });
+
+      const fakeOrder = {
+        id: 'order-uuid',
+        subtotal: 750,
+        discount: 0,
+        fee: 37.5,
+        total: 787.5,
+        orderItems: [
+          {
+            id: 'oi-1',
+            quantity: 3,
+            unitPrice: 250,
+            total: 750,
+            tickets: [
+              { code: 'TKT-A', qrCode: 'url' },
+              { code: 'TKT-B', qrCode: 'url' },
+              { code: 'TKT-C', qrCode: 'url' },
+            ],
+          },
+        ],
+      };
+      mockTx.order.create.mockResolvedValue(fakeOrder);
+      mockTx.payment.create.mockResolvedValue({});
+
+      const dupDto = {
+        items: [
+          { categoryId: 'cat-uuid', quantity: 2 },
+          { categoryId: 'cat-uuid', quantity: 1 },
+        ],
+      };
+
+      await service.create(dupDto, userId);
+
+      expect(mockTx.category.findMany).toHaveBeenCalledWith({
+        where: { id: { in: ['cat-uuid'] } },
+        include: { event: true },
+      });
+      expect(mockTx.category.update).toHaveBeenCalledTimes(1);
+      expect(mockTx.category.update).toHaveBeenCalledWith({
+        where: { id: 'cat-uuid', quantity: { gte: 3 } },
+        data: { quantity: { decrement: 3 } },
+      });
+    });
+
     it('should create correct number of tickets per item quantity', async () => {
-      mockTx.category.findUnique.mockResolvedValue(baseCategory);
+      mockTx.category.findMany.mockResolvedValue([baseCategory]);
       mockTx.category.update.mockResolvedValue({
         ...baseCategory,
         quantity: 95,
@@ -322,10 +389,12 @@ describe('OrderService', () => {
     });
 
     it('should create an order when salesStart equals now', async () => {
-      mockTx.category.findUnique.mockResolvedValue({
-        ...baseCategory,
-        salesStart: new Date(SYSTEM_TIME),
-      });
+      mockTx.category.findMany.mockResolvedValue([
+        {
+          ...baseCategory,
+          salesStart: new Date(SYSTEM_TIME),
+        },
+      ]);
       mockTx.category.update.mockResolvedValue({
         ...baseCategory,
         quantity: 98,
@@ -340,10 +409,12 @@ describe('OrderService', () => {
     });
 
     it('should create an order when salesEnd equals now', async () => {
-      mockTx.category.findUnique.mockResolvedValue({
-        ...baseCategory,
-        salesEnd: new Date(SYSTEM_TIME),
-      });
+      mockTx.category.findMany.mockResolvedValue([
+        {
+          ...baseCategory,
+          salesEnd: new Date(SYSTEM_TIME),
+        },
+      ]);
       mockTx.category.update.mockResolvedValue({
         ...baseCategory,
         quantity: 98,
@@ -358,10 +429,12 @@ describe('OrderService', () => {
     });
 
     it('should create an order when event.startDate equals now', async () => {
-      mockTx.category.findUnique.mockResolvedValue({
-        ...baseCategory,
-        event: { ...publishedEvent, startDate: new Date(SYSTEM_TIME) },
-      });
+      mockTx.category.findMany.mockResolvedValue([
+        {
+          ...baseCategory,
+          event: { ...publishedEvent, startDate: new Date(SYSTEM_TIME) },
+        },
+      ]);
       mockTx.category.update.mockResolvedValue({
         ...baseCategory,
         quantity: 98,
@@ -378,7 +451,7 @@ describe('OrderService', () => {
 
   describe('create - partial failure', () => {
     it('should not create order or payment when a later item runs out of stock', async () => {
-      mockTx.category.findUnique.mockResolvedValue(baseCategory);
+      mockTx.category.findMany.mockResolvedValue([baseCategory, baseCategory2]);
       mockTx.category.update
         .mockResolvedValueOnce({ ...baseCategory, quantity: 98 })
         .mockRejectedValueOnce(
@@ -390,7 +463,7 @@ describe('OrderService', () => {
       const multiDto = {
         items: [
           { categoryId: 'cat-uuid', quantity: 2 },
-          { categoryId: 'cat-uuid', quantity: 1 },
+          { categoryId: 'cat-uuid-2', quantity: 1 },
         ],
       };
 

@@ -265,7 +265,7 @@ describe('EventService', () => {
       const events = [{ id: '1', name: 'Rock in Rio' }];
       prisma.$transaction.mockResolvedValue([events, 1]);
 
-      await service.findAll({ startDate: '2026-09-15' });
+      await service.findAll({ startDate: new Date('2026-09-15') });
 
       expect(prisma.event.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -280,7 +280,7 @@ describe('EventService', () => {
       const events = [{ id: '1', name: 'Rock in Rio' }];
       prisma.$transaction.mockResolvedValue([events, 1]);
 
-      await service.findAll({ endDate: '2026-09-16' });
+      await service.findAll({ endDate: new Date('2026-09-16') });
 
       expect(prisma.event.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
