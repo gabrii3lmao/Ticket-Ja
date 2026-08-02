@@ -153,12 +153,21 @@ export class OrderService {
 
   private buildTickets(
     quantity: number,
-  ): Array<{ code: string; qrCode: string }> {
+    userId: string,
+    eventId: string,
+  ): Array<{
+    code: string;
+    qrCode: string;
+    user: { connect: { id: string } };
+    event: { connect: { id: string } };
+  }> {
     return Array.from({ length: quantity }, () => {
       const code = `TKT-${randomUUID().split('-')[0].toUpperCase()}`;
       return {
         code,
         qrCode: `http://localhost:3000/api/ticket/validate/${code}`,
+        user: { connect: { id: userId } },
+        event: { connect: { id: eventId } },
       };
     });
   }
@@ -178,12 +187,12 @@ export class OrderService {
         total: amounts.total,
         orderItems: {
           create: itemsData.map(({ category, quantity }) => ({
-            categoryId: category.id,
+            category: { connect: { id: category.id } },
             quantity,
             unitPrice: category.price,
             total: +(Number(category.price) * quantity).toFixed(2),
             tickets: {
-              create: this.buildTickets(quantity),
+              create: this.buildTickets(quantity, userId, category.eventId),
             },
           })),
         },

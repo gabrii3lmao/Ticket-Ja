@@ -370,8 +370,7 @@ describe('OrderService', () => {
       }));
       mockTx.payment.create.mockResolvedValue({});
 
-      const result = await service.create(createDto, userId);
-
+      const result = (await service.create(createDto, userId)) as any;
       expect(result.orderItems[0].tickets).toHaveLength(2);
     });
   });

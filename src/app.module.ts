@@ -10,6 +10,7 @@ import { VenueModule } from './venue/venue.module';
 import { PrismaModule } from './prisma.module';
 import { CategoryModule } from './category/category.module';
 import { OrderModule } from './order/order.module';
+import { TicketModule } from './ticket/ticket.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { OrderModule } from './order/order.module';
     VenueModule,
     CategoryModule,
     OrderModule,
+    TicketModule,
   ],
   controllers: [],
   providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],

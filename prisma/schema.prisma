@@ -15,9 +15,11 @@ model User {
   passwordHash String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  events       Event[]
-  orders       Order[]
-  venues       Venue[]
+
+  events  Event[]
+  orders  Order[]
+  venues  Venue[]
+  tickets Ticket[]
 }
 
 model Venue {
@@ -30,9 +32,9 @@ model Venue {
   state     String?  @db.VarChar(2)
   zipCode   String?  @db.VarChar(20)
   capacity  Int
+  events    Event[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  events    Event[]
 
   organizerId String
   user        User   @relation(fields: [organizerId], references: [id])
@@ -52,6 +54,7 @@ model Event {
   minimumAge  Int?
   status      EventStatus @default(DRAFT)
   categories  Category[]
+  tickets     Ticket[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
@@ -126,11 +129,19 @@ model Ticket {
   status    TicketStatus @default(VALID)
   createdAt DateTime     @default(now())
 
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   orderItemId String
   orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
 
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
   @@index([orderItemId])
   @@index([status])
+  @@index([userId])
+  @@index([eventId])
 }
 
 model Payment {
