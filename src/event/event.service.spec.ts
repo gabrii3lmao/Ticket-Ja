@@ -1,5 +1,11 @@
 jest.mock('generated/prisma/client', () => ({
   PrismaClient: class {},
+  EventStatus: {
+    DRAFT: 'DRAFT',
+    PUBLISHED: 'PUBLISHED',
+    FINISHED: 'FINISHED',
+    CANCELED: 'CANCELED',
+  },
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
@@ -270,6 +276,7 @@ describe('EventService', () => {
       expect(prisma.event.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
+            status: 'PUBLISHED',
             startDate: { gte: new Date('2026-09-15') },
           },
         }),
@@ -285,10 +292,24 @@ describe('EventService', () => {
       expect(prisma.event.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
+            status: 'PUBLISHED',
             endDate: { lte: new Date('2026-09-16') },
           },
         }),
       );
+    });
+
+    it('should return totalPages 1 when page exceeds available data', async () => {
+      prisma.$transaction.mockResolvedValue([[], 5]);
+
+      const result = await service.findAll({ page: 3, limit: 10 });
+
+      expect(result.meta).toEqual({
+        total: 5,
+        page: 3,
+        limit: 10,
+        totalPages: 1,
+      });
     });
   });
 
@@ -511,6 +532,66 @@ describe('EventService', () => {
         service.updateStatus('1', userId, 'PUBLISHED'),
       ).rejects.toThrow(NotFoundException);
       expect(prisma.event.update).not.toHaveBeenCalled();
+    });
+
+    it('should transition PUBLISHED to FINISHED', async () => {
+      const event = { id: '1', status: 'PUBLISHED', organizerId: userId };
+
+      prisma.event.findUnique.mockResolvedValue(event);
+      prisma.event.update.mockResolvedValue({ ...event, status: 'FINISHED' });
+
+      const result = await service.updateStatus('1', userId, 'FINISHED');
+
+      expect(prisma.event.update).toHaveBeenCalledWith({
+        where: { id: '1' },
+        data: { status: 'FINISHED' },
+      });
+      expect(result.status).toBe('FINISHED');
+    });
+
+    it('should transition PUBLISHED to CANCELED', async () => {
+      const event = { id: '1', status: 'PUBLISHED', organizerId: userId };
+
+      prisma.event.findUnique.mockResolvedValue(event);
+      prisma.event.update.mockResolvedValue({ ...event, status: 'CANCELED' });
+
+      const result = await service.updateStatus('1', userId, 'CANCELED');
+
+      expect(prisma.event.update).toHaveBeenCalledWith({
+        where: { id: '1' },
+        data: { status: 'CANCELED' },
+      });
+      expect(result.status).toBe('CANCELED');
+    });
+
+    it('should transition DRAFT to CANCELED', async () => {
+      const event = { id: '1', status: 'DRAFT', organizerId: userId };
+
+      prisma.event.findUnique.mockResolvedValue(event);
+      prisma.event.update.mockResolvedValue({ ...event, status: 'CANCELED' });
+
+      const result = await service.updateStatus('1', userId, 'CANCELED');
+
+      expect(prisma.event.update).toHaveBeenCalledWith({
+        where: { id: '1' },
+        data: { status: 'CANCELED' },
+      });
+      expect(result.status).toBe('CANCELED');
+    });
+
+    it('should transition FINISHED to CANCELED', async () => {
+      const event = { id: '1', status: 'FINISHED', organizerId: userId };
+
+      prisma.event.findUnique.mockResolvedValue(event);
+      prisma.event.update.mockResolvedValue({ ...event, status: 'CANCELED' });
+
+      const result = await service.updateStatus('1', userId, 'CANCELED');
+
+      expect(prisma.event.update).toHaveBeenCalledWith({
+        where: { id: '1' },
+        data: { status: 'CANCELED' },
+      });
+      expect(result.status).toBe('CANCELED');
     });
   });
 

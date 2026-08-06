@@ -1,6 +1,24 @@
-jest.mock('generated/prisma/client', () => ({
-  PrismaClient: class {},
-}));
+class mockDecimal {
+  private value: number;
+  constructor(value: string | number) {
+    this.value = Number(value);
+  }
+  plus(other: mockDecimal | number | string) {
+    return new mockDecimal(this.value + Number(other));
+  }
+  times(other: mockDecimal | number | string) {
+    return new mockDecimal(this.value * Number(other));
+  }
+  toDecimalPlaces() {
+    return new mockDecimal(Math.round(this.value * 100) / 100);
+  }
+  toNumber() {
+    return this.value;
+  }
+  toString() {
+    return String(this.value);
+  }
+}
 
 class PrismaClientKnownRequestError extends Error {
   code: string;
@@ -11,7 +29,13 @@ class PrismaClientKnownRequestError extends Error {
   }
 }
 
+jest.mock('generated/prisma/client', () => ({
+  Prisma: { Decimal: mockDecimal },
+  PrismaClient: class {},
+}));
+
 jest.mock('generated/prisma/internal/prismaNamespace', () => ({
+  Decimal: mockDecimal,
   PrismaClientKnownRequestError,
 }));
 
@@ -49,7 +73,7 @@ const publishedEvent = {
 const baseCategory = {
   id: 'cat-uuid',
   name: 'Pista Premium',
-  price: 250,
+  price: new mockDecimal(250),
   quantity: 100,
   salesStart: null,
   salesEnd: null,
@@ -372,6 +396,49 @@ describe('OrderService', () => {
 
       const result = (await service.create(createDto, userId)) as any;
       expect(result.orderItems[0].tickets).toHaveLength(2);
+    });
+
+    it('should round fee to 2 decimal places and keep total consistent', async () => {
+      const fractionalCategory = {
+        ...baseCategory,
+        price: new mockDecimal(33.33),
+      };
+      mockTx.category.findMany.mockResolvedValue([fractionalCategory]);
+      mockTx.category.update.mockResolvedValue({
+        ...fractionalCategory,
+        quantity: 99,
+      });
+
+      let capturedData: any;
+      mockTx.order.create.mockImplementation(({ data }) => {
+        capturedData = data;
+        return {
+          id: 'order-uuid',
+          subtotal: data.subtotal,
+          discount: data.discount,
+          fee: data.fee,
+          total: data.total,
+          orderItems: data.orderItems.create.map(
+            (item: { tickets: { create: unknown[] }; quantity: number }) => ({
+              quantity: item.quantity,
+              tickets: [],
+            }),
+          ),
+        };
+      });
+      mockTx.payment.create.mockResolvedValue({});
+
+      await service.create(createDto, userId);
+
+      expect(capturedData.subtotal.toNumber()).toBe(66.66);
+      expect(capturedData.fee.toNumber()).toBe(3.33);
+      expect(capturedData.total.toNumber()).toBe(69.99);
+      expect(capturedData.orderItems.create[0].total.toNumber()).toBe(66.66);
+      expect(mockTx.payment.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ amount: capturedData.total }),
+        }),
+      );
     });
   });
 

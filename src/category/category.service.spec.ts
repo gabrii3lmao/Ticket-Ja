@@ -15,6 +15,7 @@ const mockPrisma = {
   $transaction: jest.fn(),
   category: {
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     findMany: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
@@ -263,19 +264,19 @@ describe('CategoryService', () => {
         createdAt: new Date(),
       };
 
-      prisma.category.findUnique.mockResolvedValue(category);
+      prisma.category.findFirst.mockResolvedValue(category);
 
       const result = await service.findOne('1');
 
-      expect(prisma.category.findUnique).toHaveBeenCalledWith({
-        where: { id: '1' },
+      expect(prisma.category.findFirst).toHaveBeenCalledWith({
+        where: { id: '1', event: { status: 'PUBLISHED' } },
         include: { event: true },
       });
       expect(result).toEqual(category);
     });
 
     it('should throw NotFoundException when category not found', async () => {
-      prisma.category.findUnique.mockResolvedValue(null);
+      prisma.category.findFirst.mockResolvedValue(null);
 
       await expect(service.findOne('nonexistent')).rejects.toThrow(
         NotFoundException,
@@ -394,6 +395,19 @@ describe('CategoryService', () => {
           },
         }),
       );
+    });
+
+    it('should return totalPages 1 when page exceeds available data', async () => {
+      prisma.$transaction.mockResolvedValue([[], 5]);
+
+      const result = await service.findAll({ page: 3, limit: 10 }, eventId);
+
+      expect(result.meta).toEqual({
+        total: 5,
+        page: 3,
+        limit: 10,
+        totalPages: 1,
+      });
     });
   });
 

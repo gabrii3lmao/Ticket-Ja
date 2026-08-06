@@ -207,6 +207,19 @@ describe('VenueService', () => {
         }),
       );
     });
+
+    it('should return totalPages 1 when page exceeds available data', async () => {
+      prisma.$transaction.mockResolvedValue([[], 5]);
+
+      const result = await service.findAll({ page: 3, limit: 10 });
+
+      expect(result.meta).toEqual({
+        total: 5,
+        page: 3,
+        limit: 10,
+        totalPages: 1,
+      });
+    });
   });
 
   describe('update', () => {

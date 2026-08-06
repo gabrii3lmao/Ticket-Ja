@@ -17,7 +17,7 @@ const mockPrisma = {
     findMany: jest.fn(),
     findUnique: jest.fn(),
     count: jest.fn(),
-    update: jest.fn(),
+    updateMany: jest.fn(),
   },
 };
 
@@ -26,6 +26,7 @@ const userId = 'user-uuid';
 const baseEvent = {
   id: 'event-uuid',
   name: 'Rock in Rio',
+  status: 'PUBLISHED',
   startDate: new Date('2099-09-15'),
   venue: {
     id: 'venue-uuid',
@@ -167,6 +168,49 @@ describe('TicketService', () => {
         totalPages: 3,
       });
     });
+
+    it('should apply eventId filter', async () => {
+      mockPrisma.ticket.findMany.mockResolvedValue([]);
+      mockPrisma.ticket.count.mockResolvedValue(0);
+
+      await service.findAll({ eventId: 'event-uuid' }, userId);
+
+      expect(mockPrisma.ticket.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            eventId: 'event-uuid',
+            userId,
+          }),
+        }),
+      );
+    });
+
+    it('should apply custom sort', async () => {
+      mockPrisma.ticket.findMany.mockResolvedValue([]);
+      mockPrisma.ticket.count.mockResolvedValue(0);
+
+      await service.findAll({ sortBy: 'createdAt', sortOrder: 'asc' }, userId);
+
+      expect(mockPrisma.ticket.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { createdAt: 'asc' },
+        }),
+      );
+    });
+
+    it('should return totalPages 1 when page exceeds available data', async () => {
+      mockPrisma.ticket.findMany.mockResolvedValue([]);
+      mockPrisma.ticket.count.mockResolvedValue(5);
+
+      const result = await service.findAll({ page: 3, limit: 10 }, userId);
+
+      expect(result.meta).toEqual({
+        total: 5,
+        page: 3,
+        limit: 10,
+        totalPages: 1,
+      });
+    });
   });
 
   describe('findOne', () => {
@@ -245,6 +289,39 @@ describe('TicketService', () => {
       expect(result.valid).toBe(false);
     });
 
+    it('should return valid: false for a CANCELED ticket', async () => {
+      mockPrisma.ticket.findUnique.mockResolvedValue({
+        ...baseTicket,
+        status: 'CANCELED',
+      });
+
+      const result = await service.validate('TKT-ABC123');
+
+      expect(result.valid).toBe(false);
+    });
+
+    it('should return valid: false when event is FINISHED', async () => {
+      mockPrisma.ticket.findUnique.mockResolvedValue({
+        ...baseTicket,
+        event: { ...baseEvent, status: 'FINISHED' },
+      });
+
+      const result = await service.validate('TKT-ABC123');
+
+      expect(result.valid).toBe(false);
+    });
+
+    it('should return valid: false when event is CANCELED', async () => {
+      mockPrisma.ticket.findUnique.mockResolvedValue({
+        ...baseTicket,
+        event: { ...baseEvent, status: 'CANCELED' },
+      });
+
+      const result = await service.validate('TKT-ABC123');
+
+      expect(result.valid).toBe(false);
+    });
+
     it('should throw NotFoundException when code is invalid', async () => {
       mockPrisma.ticket.findUnique.mockResolvedValue(null);
 
@@ -256,17 +333,25 @@ describe('TicketService', () => {
 
   describe('markAsUsed', () => {
     it('should mark a VALID ticket as USED', async () => {
-      const usedTicket = { ...baseTicket, status: 'USED' };
       mockPrisma.ticket.findUnique.mockResolvedValue({ ...baseTicket });
-      mockPrisma.ticket.update.mockResolvedValue(usedTicket);
+      mockPrisma.ticket.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.markAsUsed('ticket-uuid', userId);
 
-      expect(mockPrisma.ticket.update).toHaveBeenCalledWith({
-        where: { id: 'ticket-uuid' },
-        data: { status: 'USED' },
+      expect(mockPrisma.ticket.updateMany).toHaveBeenCalledWith({
+        where: { id: 'ticket-uuid', status: 'VALID' },
+        data: { status: 'USED', usedAt: expect.any(Date) },
       });
-      expect(result).toEqual(usedTicket);
+      expect(result).toEqual({ count: 1 });
+    });
+
+    it('should throw BadRequestException when updateMany count is 0', async () => {
+      mockPrisma.ticket.findUnique.mockResolvedValue({ ...baseTicket });
+      mockPrisma.ticket.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.markAsUsed('ticket-uuid', userId)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw NotFoundException when ticket does not exist', async () => {

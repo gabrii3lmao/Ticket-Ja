@@ -6,12 +6,15 @@ import {
 import { randomBytes } from 'node:crypto';
 import { PrismaService } from 'src/prisma.service';
 import { Category, Prisma } from 'generated/prisma/client';
-import { PrismaClientKnownRequestError } from 'generated/prisma/internal/prismaNamespace';
+import {
+  Decimal,
+  PrismaClientKnownRequestError,
+} from 'generated/prisma/internal/prismaNamespace';
 import { CreateOrderDto } from './dto/create-order.dto';
 
 @Injectable()
 export class OrderService {
-  private readonly FEE_RATE = 0.05;
+  private readonly FEE_RATE = new Decimal('0.05');
   constructor(private prisma: PrismaService) {}
 
   async create(createOrderDto: CreateOrderDto, userId: string) {
@@ -134,15 +137,13 @@ export class OrderService {
 
   private calculateAmount(
     itemsData: Array<{ category: Category; quantity: number }>,
-  ): { subtotal: number; fee: number; total: number } {
-    const subtotal = +itemsData
-      .reduce((acc, { category, quantity }) => {
-        return acc + Number(category.price) * quantity;
-      }, 0)
-      .toFixed(2);
+  ) {
+    const subtotal = itemsData.reduce((acc, { category, quantity }) => {
+      return acc.plus(category.price.times(quantity));
+    }, new Prisma.Decimal(0));
 
-    const fee = +(subtotal * this.FEE_RATE).toFixed(2);
-    const total = +(subtotal + fee).toFixed(2);
+    const fee = subtotal.times(this.FEE_RATE).toDecimalPlaces(2);
+    const total = subtotal.plus(fee);
 
     return {
       subtotal,
@@ -176,7 +177,7 @@ export class OrderService {
     tx: Prisma.TransactionClient,
     userId: string,
     itemsData: Array<{ category: Category; quantity: number }>,
-    amounts: { subtotal: number; fee: number; total: number },
+    amounts: { subtotal: Decimal; fee: Decimal; total: Decimal },
   ) {
     return tx.order.create({
       data: {
@@ -190,7 +191,7 @@ export class OrderService {
             category: { connect: { id: category.id } },
             quantity,
             unitPrice: category.price,
-            total: +(Number(category.price) * quantity).toFixed(2),
+            total: category.price.times(quantity),
             tickets: {
               create: this.buildTickets(quantity, userId, category.eventId),
             },
