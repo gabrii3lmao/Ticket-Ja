@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { PrismaService } from 'src/prisma.service';
 import { Category, Prisma } from 'generated/prisma/client';
 import { PrismaClientKnownRequestError } from 'generated/prisma/internal/prismaNamespace';
@@ -162,7 +162,7 @@ export class OrderService {
     event: { connect: { id: string } };
   }> {
     return Array.from({ length: quantity }, () => {
-      const code = `TKT-${randomUUID().split('-')[0].toUpperCase()}`;
+      const code = `TKT-${randomBytes(12).toString('base64url')}`;
       return {
         code,
         qrCode: `http://localhost:3000/api/ticket/validate/${code}`,

@@ -104,7 +104,7 @@ export class TicketService {
           state: ticket.event.venue.state,
         },
       },
-      valid: ticket.status === 'VALID',
+      valid: ticket.status === 'VALID' && ticket.event.status === 'PUBLISHED',
     };
   }
 
@@ -125,9 +125,23 @@ export class TicketService {
       );
     }
 
-    return this.prisma.ticket.update({
-      where: { id },
-      data: { status: 'USED' },
+    const result = await this.prisma.ticket.updateMany({
+      where: {
+        id,
+        status: 'VALID',
+      },
+      data: {
+        status: 'USED',
+        usedAt: new Date(),
+      },
     });
+
+    if (result.count === 0) {
+      throw new BadRequestException(
+        'Ticket was already used or invalidated concurrently',
+      );
+    }
+
+    return result;
   }
 }

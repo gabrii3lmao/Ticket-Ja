@@ -65,6 +65,7 @@ export class EventService {
     };
 
     const where = {
+      status: EventStatus.PUBLISHED,
       ...(name && { name: { contains: name, mode: 'insensitive' as const } }),
       ...(Object.keys(venueFilter).length && { venue: venueFilter }),
       ...(startDate && { startDate: { gte: new Date(startDate) } }),
@@ -95,7 +96,9 @@ export class EventService {
   ): Promise<Event> {
     const eventExist = await this.getOwnedEvent(id, userId);
 
-    assertEndDateAfterStartDate(eventExist.startDate, data.endDate);
+    const startDate = data.startDate ?? eventExist.startDate;
+
+    assertEndDateAfterStartDate(startDate, data.endDate);
 
     if (data.venueId) await this.validateVenueOwnership(data.venueId, userId);
 
