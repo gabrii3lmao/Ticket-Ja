@@ -7,7 +7,7 @@ import { PrismaClientExceptionFilter } from './common/filters/prisma-exception.f
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = (await NestFactory.create(AppModule)).setGlobalPrefix('api');
   const config = new DocumentBuilder()
     .setTitle('Ticket Já API')
     .setDescription(
@@ -17,7 +17,7 @@ async function bootstrap() {
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' })
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, documentFactory);
+  SwaggerModule.setup('docs', app, documentFactory);
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
