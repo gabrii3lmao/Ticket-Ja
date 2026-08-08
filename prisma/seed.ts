@@ -261,7 +261,7 @@ async function main() {
   });
 
   console.log(
-    `Categories: ${catPista.name} ($${catPista.price}), ${catVip.name} ($${catVip.price}), ${catArqui.name} ($${catArqui.price}), ${catCamarote.name} ($${catCamarote.price}), ${catMeia.name} ($${catMeia.price}), ${catInteira.name} ($${catInteira.price})`,
+    `Categories: ${catPista.name} ($${Number(catPista.price).toFixed(2)}), ${catVip.name} ($${Number(catVip.price).toFixed(2)}), ${catArqui.name} ($${Number(catArqui.price).toFixed(2)}), ${catCamarote.name} ($${Number(catCamarote.price).toFixed(2)}), ${catMeia.name} ($${Number(catMeia.price).toFixed(2)}), ${catInteira.name} ($${Number(catInteira.price).toFixed(2)})`,
   );
 
   // ── Order #1: Ana → Carnaval Pista ×2 (PAID) ──────────────
@@ -318,7 +318,7 @@ async function main() {
   });
 
   console.log(
-    `Order #1: ${buyer1.email} → ${event1.name} (${catPista.name} ×2) = $${order1.total} [PAID/APPROVED]`,
+    `Order #1: ${buyer1.email} → ${event1.name} (${catPista.name} ×2) = $${Number(order1.total).toFixed(2)} [PAID/APPROVED]`,
   );
 
   // ── Order #2: João → Lolla Arqui ×1 + Camarote ×1 (PENDING) ──
@@ -384,7 +384,7 @@ async function main() {
   });
 
   console.log(
-    `Order #2: ${buyer2.email} → ${event2.name} (${catArqui.name} ×1 + ${catCamarote.name} ×1) = $${order2.total} [PENDING/PENDING]`,
+    `Order #2: ${buyer2.email} → ${event2.name} (${catArqui.name} ×1 + ${catCamarote.name} ×1) = $${Number(order2.total).toFixed(2)} [PENDING/PENDING]`,
   );
 
   // ── Order #3: Ana → Carnaval Pista ×1 (CANCELED / REFUNDED) ──
@@ -432,7 +432,7 @@ async function main() {
   });
 
   console.log(
-    `Order #3: ${buyer1.email} → ${event1.name} (${catPista.name} ×1) = $${order3.total} [CANCELED/REFUNDED]`,
+    `Order #3: ${buyer1.email} → ${event1.name} (${catPista.name} ×1) = $${Number(order3.total).toFixed(2)} [CANCELED/REFUNDED]`,
   );
 
   // ── Order #4: João → Rock Underground Inteira ×3 (PENDING / FAILED) ──
@@ -495,7 +495,7 @@ async function main() {
   });
 
   console.log(
-    `Order #4: ${buyer2.email} → ${event3.name} (${catInteira.name} ×3) = $${order4.total} [PENDING/FAILED]`,
+    `Order #4: ${buyer2.email} → ${event3.name} (${catInteira.name} ×3) = $${Number(order4.total).toFixed(2)} [PENDING/FAILED]`,
   );
 
   // ── Summary ────────────────────────────────────────────────
