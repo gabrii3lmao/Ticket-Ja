@@ -9,17 +9,36 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  taxId     String?  @unique @db.VarChar(11)
+  phone     String?  @db.VarChar(20)
+  role      Role     @default(BUYER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  events  Event[]
-  orders  Order[]
-  venues  Venue[]
-  tickets Ticket[]
+  orders            Order[]
+  tickets           Ticket[]
+  organizerProfiles OrganizerProfile?
+  gatewayCustomers  GatewayCustomer[]
+}
+
+model OrganizerProfile {
+  id        String   @id @default(uuid())
+  legalName String
+  tradeName String?
+  // CPF ou CNPJ pro Split payment
+  document  String   @unique @db.VarChar(14)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  venues          Venue[]
+  events          Event[]
+  paymentAccounts PaymentAccount[]
 }
 
 model Venue {
@@ -36,8 +55,8 @@ model Venue {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  organizerId String
-  user        User   @relation(fields: [organizerId], references: [id])
+  organizerProfileId String
+  organizerProfile   OrganizerProfile @relation(fields: [organizerProfileId], references: [id])
 
   @@index([city])
   @@index([state])
@@ -58,13 +77,14 @@ model Event {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
-  organizerId String
-  organizer   User   @relation(fields: [organizerId], references: [id], onDelete: Restrict)
+  organizerProfileId String
+  organizerProfile   OrganizerProfile @relation(fields: [organizerProfileId], references: [id], onDelete: Restrict)
 
   venueId String
-  venue   Venue  @relation(fields: [venueId], references: [id], onDelete: Restrict)
+  venue   Venue    @relation(fields: [venueId], references: [id], onDelete: Restrict)
+  coupons Coupon[]
 
-  @@index([organizerId])
+  @@index([organizerProfileId])
   @@index([venueId])
   @@index([startDate])
 }
@@ -100,6 +120,9 @@ model Order {
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  couponId String?
+  coupon   Coupon? @relation(fields: [couponId], references: [id])
 
   @@index([userId])
   @@index([status])
@@ -149,16 +172,80 @@ model Payment {
   id            String          @id @default(uuid())
   provider      PaymentProvider
   paymentMethod PaymentMethod
-  transactionId String?         @db.VarChar(255)
+  externalId    String?         @db.VarChar(255)
   amount        Decimal         @db.Decimal(10, 2)
   status        PaymentStatus   @default(PENDING)
   paidAt        DateTime?
   createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 
-  orderId String @unique
-  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Restrict)
 
   @@index([orderId])
+  @@index([provider, externalId])
+}
+
+model PaymentAccount {
+  id        String          @id @default(uuid())
+  provider  PaymentProvider
+  accountId String
+  isDefault Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  organizerProfileId String
+  organizerProfile   OrganizerProfile @relation(fields: [organizerProfileId], references: [id])
+
+  // impede duplicações
+  @@unique([organizerProfileId, provider])
+  @@index([organizerProfileId])
+  @@index([provider])
+}
+
+model GatewayCustomer {
+  id         String          @id @default(uuid())
+  customerId String
+  provider   PaymentProvider
+  createdAt  DateTime        @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([userId, provider])
+  @@index([userId])
+  @@index([provider])
+}
+
+model PaymentWebhookEvent {
+  id          String          @id @default(uuid())
+  provider    PaymentProvider
+  eventId     String
+  eventType   String
+  payload     Json
+  processedAt DateTime?
+  createdAt   DateTime        @default(now())
+
+  @@unique([provider, eventId])
+  @@index([provider])
+  @@index([eventId])
+}
+
+model Coupon {
+  id           String       @id @default(uuid())
+  code         String       @unique @db.VarChar(50)
+  description  String       @db.Text()
+  discountType DiscountType
+  value        Decimal      @db.Decimal(10, 2)
+  expiresAt    DateTime?
+  maxUses      Int?
+  currentUses  Int          @default(0)
+  active       Boolean      @default(true)
+
+  eventId String?
+  event   Event?  @relation(fields: [eventId], references: [id])
+
+  orders Order[]
 }
 
 enum EventStatus {
@@ -205,4 +292,10 @@ enum PaymentMethod {
 enum DiscountType {
   PERCENTAGE
   FIXED
+}
+
+enum Role {
+  BUYER
+  ORGANIZER
+  ADMIN
 }
