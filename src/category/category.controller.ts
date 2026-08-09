@@ -21,7 +21,10 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { QueryCategoryDto } from './dto/query-category.dto';
 import { Public } from 'src/auth/decorators/public.decorator';
-import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import {
+  CurrentUser,
+  type UserPayload,
+} from 'src/auth/decorators/current-user.decorator';
 import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
 
 @ApiTags('category')
@@ -36,9 +39,9 @@ export class CategoryController {
   create(
     @Param('eventId') eventId: string,
     @Body() createCategoryDto: CreateCategoryDto,
-    @CurrentUser(ActiveUserPipe) userId: string,
+    @CurrentUser(ActiveUserPipe) user: UserPayload,
   ) {
-    return this.categoryService.create(createCategoryDto, eventId, userId);
+    return this.categoryService.create(createCategoryDto, eventId, user.id);
   }
 
   @Public()
@@ -69,9 +72,9 @@ export class CategoryController {
   update(
     @Param('id') id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
-    @CurrentUser(ActiveUserPipe) userId: string,
+    @CurrentUser(ActiveUserPipe) user: UserPayload,
   ) {
-    return this.categoryService.update(id, userId, updateCategoryDto);
+    return this.categoryService.update(id, user.id, updateCategoryDto);
   }
 
   @Delete(':id')
@@ -80,7 +83,10 @@ export class CategoryController {
   @ApiOperation({ summary: 'Delete a category' })
   @ApiResponse({ status: 204, description: 'Category deleted successfully' })
   @ApiResponse({ status: 404, description: 'Category not found' })
-  remove(@Param('id') id: string, @CurrentUser(ActiveUserPipe) userId: string) {
-    return this.categoryService.remove(id, userId);
+  remove(
+    @Param('id') id: string,
+    @CurrentUser(ActiveUserPipe) user: UserPayload,
+  ) {
+    return this.categoryService.remove(id, user.id);
   }
 }

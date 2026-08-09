@@ -20,7 +20,7 @@ export class CategoryService {
       include: { venue: true },
     });
 
-    if (!event || event.organizerId !== userId) {
+    if (!event || event.organizerProfileId !== userId) {
       throw new ForbiddenException('Event not found or not yours');
     }
 
@@ -127,7 +127,7 @@ export class CategoryService {
       include: { venue: true },
     });
 
-    if (!event || event.organizerId !== userId) {
+    if (!event || event.organizerProfileId !== userId) {
       throw new ForbiddenException(
         'Category in this event not found or not yours',
       );
@@ -178,7 +178,7 @@ export class CategoryService {
       where: { id: categoryExist?.eventId },
     });
 
-    if (!event || event.organizerId !== userId) {
+    if (!event || event.organizerProfileId !== userId) {
       throw new ForbiddenException(
         'Category in this event not found or not yours',
       );

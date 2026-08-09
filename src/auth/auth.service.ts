@@ -20,9 +20,13 @@ export class AuthService {
     return user;
   }
 
-  login(user: { id: string; email: string }) {
+  login(user: { id: string; email: string; role: string }) {
     return {
-      accessToken: this.jwtService.sign({ sub: user.id, email: user.email }),
+      accessToken: this.jwtService.sign({
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+      }),
     };
   }
 

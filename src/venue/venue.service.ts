@@ -15,7 +15,9 @@ export class VenueService {
   constructor(private prisma: PrismaService) {}
 
   async create(data: CreateVenueDto, userId: string): Promise<Venue> {
-    return this.prisma.venue.create({ data: { ...data, organizerId: userId } });
+    return this.prisma.venue.create({
+      data: { ...data, organizerProfileId: userId },
+    });
   }
 
   async findAll(query: QueryVenueDto) {
@@ -77,7 +79,7 @@ export class VenueService {
     data: UpdateVenueDto,
   ): Promise<Venue> {
     const venue = await this.prisma.venue.findUnique({ where: { id } });
-    if (!venue || venue.organizerId !== userId) {
+    if (!venue || venue.organizerProfileId !== userId) {
       throw new ForbiddenException('Venue not found or not yours');
     }
 
@@ -106,7 +108,7 @@ export class VenueService {
 
   async delete(id: string, userId: string): Promise<Venue> {
     const venue = await this.prisma.venue.findUnique({ where: { id } });
-    if (!venue || venue.organizerId !== userId) {
+    if (!venue || venue.organizerProfileId !== userId) {
       throw new ForbiddenException('Venue not found or not yours');
     }
 

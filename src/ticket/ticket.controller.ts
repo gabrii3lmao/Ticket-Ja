@@ -8,7 +8,10 @@ import {
 } from '@nestjs/swagger';
 import { TicketService } from './ticket.service';
 import { QueryTicketDto } from './dto/query-ticket.dto';
-import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import {
+  CurrentUser,
+  type UserPayload,
+} from 'src/auth/decorators/current-user.decorator';
 import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
 import { Public } from 'src/auth/decorators/public.decorator';
 
@@ -27,9 +30,9 @@ export class TicketController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   findAll(
     @Query() queryDto: QueryTicketDto,
-    @CurrentUser(ActiveUserPipe) userId: string,
+    @CurrentUser(ActiveUserPipe) user: UserPayload,
   ) {
-    return this.ticketService.findAll(queryDto, userId);
+    return this.ticketService.findAll(queryDto, user.id);
   }
 
   @Public()
@@ -52,9 +55,9 @@ export class TicketController {
   @ApiResponse({ status: 404, description: 'Ticket not found' })
   findOne(
     @Param('id') id: string,
-    @CurrentUser(ActiveUserPipe) userId: string,
+    @CurrentUser(ActiveUserPipe) user: UserPayload,
   ) {
-    return this.ticketService.findOne(id, userId);
+    return this.ticketService.findOne(id, user.id);
   }
 
   @Patch(':id/use')
@@ -68,8 +71,8 @@ export class TicketController {
   @ApiResponse({ status: 404, description: 'Ticket not found' })
   markAsUsed(
     @Param('id') id: string,
-    @CurrentUser(ActiveUserPipe) userId: string,
+    @CurrentUser(ActiveUserPipe) user: UserPayload,
   ) {
-    return this.ticketService.markAsUsed(id, userId);
+    return this.ticketService.markAsUsed(id, user.id);
   }
 }

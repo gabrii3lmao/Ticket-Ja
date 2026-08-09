@@ -57,8 +57,8 @@ export class UserService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      await tx.event.deleteMany({ where: { organizerId: id } });
-      await tx.venue.deleteMany({ where: { organizerId: id } });
+      await tx.event.deleteMany({ where: { organizerProfileId: id } });
+      await tx.venue.deleteMany({ where: { organizerProfileId: id } });
       return tx.user.delete({ where: { id } });
     });
   }

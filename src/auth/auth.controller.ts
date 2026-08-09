@@ -17,7 +17,10 @@ import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
 import { RegisterDto } from './dto/register.dto';
 import { SignInDto } from './dto/login.dto';
-import { CurrentUser } from './decorators/current-user.decorator';
+import {
+  CurrentUser,
+  type UserPayload,
+} from './decorators/current-user.decorator';
 import { ActiveUserPipe } from './pipes/active-user.pipe';
 
 @ApiTags('auth')
@@ -52,7 +55,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Delete own account' })
   @ApiResponse({ status: 204, description: 'Account deleted successfully' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  delete(@CurrentUser(ActiveUserPipe) userId: string) {
-    return this.authService.delete(userId);
+  delete(@CurrentUser(ActiveUserPipe) user: UserPayload) {
+    return this.authService.delete(user.id);
   }
 }

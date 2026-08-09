@@ -7,7 +7,10 @@ import {
 } from '@nestjs/swagger';
 import { OrderService } from './order.service';
 import { CreateOrderDto } from './dto/create-order.dto';
-import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import {
+  CurrentUser,
+  type UserPayload,
+} from 'src/auth/decorators/current-user.decorator';
 import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
 
 @ApiTags('order')
@@ -27,8 +30,8 @@ export class OrderController {
   @ApiResponse({ status: 404, description: 'User or category not found' })
   create(
     @Body() dto: CreateOrderDto,
-    @CurrentUser(ActiveUserPipe) userId: string,
+    @CurrentUser(ActiveUserPipe) user: UserPayload,
   ) {
-    return this.orderService.create(dto, userId);
+    return this.orderService.create(dto, user.id);
   }
 }

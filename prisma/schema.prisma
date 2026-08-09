@@ -9,14 +9,15 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  taxId     String?  @unique @db.VarChar(11)
-  phone     String?  @db.VarChar(20)
-  role      Role     @default(BUYER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  taxId        String?  @unique @db.VarChar(11)
+  phone        String?  @db.VarChar(20)
+  role         Role     @default(BUYER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   orders            Order[]
   tickets           Ticket[]

@@ -20,7 +20,10 @@ import {
 import { EventService } from './event.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
-import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import {
+  CurrentUser,
+  type UserPayload,
+} from 'src/auth/decorators/current-user.decorator';
 import { Public } from 'src/auth/decorators/public.decorator';
 import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
 import { QueryEventDto } from './dto/query-event.dto';
@@ -38,9 +41,9 @@ export class EventController {
   @ApiResponse({ status: 404, description: 'User not found' })
   create(
     @Body() data: CreateEventDto,
-    @CurrentUser(ActiveUserPipe) userId: string,
+    @CurrentUser(ActiveUserPipe) user: UserPayload,
   ) {
-    return this.eventService.create(data, userId);
+    return this.eventService.create(data, user.id);
   }
 
   @Public()
@@ -66,8 +69,11 @@ export class EventController {
   @ApiOperation({ summary: 'Delete an event' })
   @ApiResponse({ status: 204, description: 'Event deleted successfully' })
   @ApiResponse({ status: 404, description: 'Event not found' })
-  delete(@Param('id') id: string, @CurrentUser(ActiveUserPipe) userId: string) {
-    return this.eventService.delete(id, userId);
+  delete(
+    @Param('id') id: string,
+    @CurrentUser(ActiveUserPipe) user: UserPayload,
+  ) {
+    return this.eventService.delete(id, user.id);
   }
 
   @Put(':id')
@@ -78,9 +84,9 @@ export class EventController {
   update(
     @Param('id') id: string,
     @Body() data: UpdateEventDto,
-    @CurrentUser(ActiveUserPipe) userId: string,
+    @CurrentUser(ActiveUserPipe) user: UserPayload,
   ) {
-    return this.eventService.update(id, userId, data);
+    return this.eventService.update(id, user.id, data);
   }
 
   @Patch(':id/status')
@@ -89,8 +95,8 @@ export class EventController {
   updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateEventStatusDto,
-    @CurrentUser(ActiveUserPipe) userId: string,
+    @CurrentUser(ActiveUserPipe) user: UserPayload,
   ) {
-    return this.eventService.updateStatus(id, userId, dto.status);
+    return this.eventService.updateStatus(id, user.id, dto.status);
   }
 }

@@ -26,7 +26,7 @@ export class EventService {
     await this.validateVenueOwnership(data.venueId, userId);
 
     return this.prisma.event.create({
-      data: { ...data, organizerId: userId },
+      data: { ...data, organizerProfileId: userId },
     });
   }
 
@@ -143,7 +143,7 @@ export class EventService {
 
   private async getOwnedEvent(id: string, userId: string) {
     const event = await this.prisma.event.findUnique({ where: { id } });
-    if (!event || event.organizerId !== userId) {
+    if (!event || event.organizerProfileId !== userId) {
       throw new NotFoundException('Event not found or not yours');
     }
     return event;
@@ -156,7 +156,7 @@ export class EventService {
 
     if (!venue) throw new NotFoundException('Venue not found');
 
-    if (venue.organizerId !== userId) {
+    if (venue.organizerProfileId !== userId) {
       throw new ForbiddenException('Venue not found or not yours');
     }
 

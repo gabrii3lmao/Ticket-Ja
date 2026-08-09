@@ -21,7 +21,10 @@ import { CreateVenueDto } from './dto/create-venue.dto';
 import { UpdateVenueDto } from './dto/update-venue.dto';
 import { QueryVenueDto } from './dto/query-venue.dto';
 import { Public } from 'src/auth/decorators/public.decorator';
-import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import {
+  CurrentUser,
+  type UserPayload,
+} from 'src/auth/decorators/current-user.decorator';
 import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
 
 @ApiTags('venue')
@@ -35,9 +38,9 @@ export class VenueController {
   @ApiResponse({ status: 201, description: 'Venue created successfully' })
   create(
     @Body() data: CreateVenueDto,
-    @CurrentUser(ActiveUserPipe) userId: string,
+    @CurrentUser(ActiveUserPipe) user: UserPayload,
   ) {
-    return this.venueService.create(data, userId);
+    return this.venueService.create(data, user.id);
   }
 
   @Public()
@@ -65,9 +68,9 @@ export class VenueController {
   update(
     @Param('id') id: string,
     @Body() data: UpdateVenueDto,
-    @CurrentUser(ActiveUserPipe) userId: string,
+    @CurrentUser(ActiveUserPipe) user: UserPayload,
   ) {
-    return this.venueService.update(id, userId, data);
+    return this.venueService.update(id, user.id, data);
   }
 
   @Delete(':id')
@@ -76,7 +79,10 @@ export class VenueController {
   @ApiOperation({ summary: 'Delete a venue' })
   @ApiResponse({ status: 204, description: 'Venue deleted successfully' })
   @ApiResponse({ status: 404, description: 'Venue not found' })
-  delete(@Param('id') id: string, @CurrentUser(ActiveUserPipe) userId: string) {
-    return this.venueService.delete(id, userId);
+  delete(
+    @Param('id') id: string,
+    @CurrentUser(ActiveUserPipe) user: UserPayload,
+  ) {
+    return this.venueService.delete(id, user.id);
   }
 }
