@@ -26,6 +26,8 @@ import {
   type UserPayload,
 } from 'src/auth/decorators/current-user.decorator';
 import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { Role } from 'generated/prisma/enums';
 
 @ApiTags('venue')
 @Controller('venue')
@@ -34,6 +36,7 @@ export class VenueController {
 
   @Post()
   @ApiBearerAuth()
+  @Roles(Role.ADMIN, Role.ORGANIZER)
   @ApiOperation({ summary: 'Create a new venue' })
   @ApiResponse({ status: 201, description: 'Venue created successfully' })
   create(
@@ -62,6 +65,7 @@ export class VenueController {
 
   @Put(':id')
   @ApiBearerAuth()
+  @Roles(Role.ADMIN, Role.ORGANIZER)
   @ApiOperation({ summary: 'Update a venue' })
   @ApiResponse({ status: 200, description: 'Venue updated successfully' })
   @ApiResponse({ status: 404, description: 'Venue not found' })
@@ -76,6 +80,7 @@ export class VenueController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiBearerAuth()
+  @Roles(Role.ADMIN, Role.ORGANIZER)
   @ApiOperation({ summary: 'Delete a venue' })
   @ApiResponse({ status: 204, description: 'Venue deleted successfully' })
   @ApiResponse({ status: 404, description: 'Venue not found' })

@@ -27,6 +27,7 @@ const mockUserService = {
 };
 
 const userId = 'user-uuid';
+const user = { id: userId, role: 'ORGANIZER' as const };
 
 describe('EventController', () => {
   let controller: EventController;
@@ -57,13 +58,17 @@ describe('EventController', () => {
         startDate: new Date('2026-12-01'),
         venueId: 'venue-uuid',
       };
-      const createdEvent = { id: 'uuid', ...dto, organizerId: userId };
+      const createdEvent = {
+        id: 'uuid',
+        ...dto,
+        organizerProfileId: 'org-uuid',
+      };
 
       mockEventService.create.mockResolvedValue(createdEvent);
 
-      const result = await controller.create(dto, userId);
+      const result = await controller.create(dto, user);
 
-      expect(eventService.create).toHaveBeenCalledWith(dto, userId);
+      expect(eventService.create).toHaveBeenCalledWith(dto, user);
       expect(result).toEqual(createdEvent);
     });
   });
@@ -131,48 +136,48 @@ describe('EventController', () => {
   });
 
   describe('delete', () => {
-    it('should call eventService.delete with the id and userId', async () => {
+    it('should call eventService.delete with the id and user', async () => {
       const event = { id: '1', name: 'Rock in Rio' };
 
       mockEventService.delete.mockResolvedValue(event);
 
-      const result = await controller.delete('1', userId);
+      const result = await controller.delete('1', user);
 
-      expect(eventService.delete).toHaveBeenCalledWith('1', userId);
+      expect(eventService.delete).toHaveBeenCalledWith('1', user);
       expect(result).toEqual(event);
     });
   });
 
   describe('update', () => {
-    it('should call eventService.update with id, userId, and DTO', async () => {
+    it('should call eventService.update with id, user, and DTO', async () => {
       const dto = { name: 'Updated Show' };
       const updatedEvent = {
         id: '1',
         name: 'Updated Show',
-        organizerId: userId,
+        organizerProfileId: 'org-uuid',
       };
 
       mockEventService.update.mockResolvedValue(updatedEvent);
 
-      const result = await controller.update('1', dto, userId);
+      const result = await controller.update('1', dto, user);
 
-      expect(eventService.update).toHaveBeenCalledWith('1', userId, dto);
+      expect(eventService.update).toHaveBeenCalledWith('1', user, dto);
       expect(result).toEqual(updatedEvent);
     });
   });
 
   describe('updateStatus', () => {
-    it('should call eventService.updateStatus with id, userId, and status', async () => {
+    it('should call eventService.updateStatus with id, user, and status', async () => {
       const dto = { status: 'PUBLISHED' as const };
       const updatedEvent = { id: '1', status: 'PUBLISHED' };
 
       mockEventService.updateStatus.mockResolvedValue(updatedEvent);
 
-      const result = await controller.updateStatus('1', dto, userId);
+      const result = await controller.updateStatus('1', dto, user);
 
       expect(eventService.updateStatus).toHaveBeenCalledWith(
         '1',
-        userId,
+        user,
         'PUBLISHED',
       );
       expect(result).toEqual(updatedEvent);

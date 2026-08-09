@@ -28,6 +28,8 @@ import { Public } from 'src/auth/decorators/public.decorator';
 import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
 import { QueryEventDto } from './dto/query-event.dto';
 import { UpdateEventStatusDto } from './dto/update-event-status.dto';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { Role } from 'generated/prisma/enums';
 
 @ApiTags('event')
 @Controller('event')
@@ -36,6 +38,7 @@ export class EventController {
 
   @Post()
   @ApiBearerAuth()
+  @Roles(Role.ADMIN, Role.ORGANIZER)
   @ApiOperation({ summary: 'Create a new event' })
   @ApiResponse({ status: 201, description: 'Event created successfully' })
   @ApiResponse({ status: 404, description: 'User not found' })
@@ -66,6 +69,7 @@ export class EventController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiBearerAuth()
+  @Roles(Role.ADMIN, Role.ORGANIZER)
   @ApiOperation({ summary: 'Delete an event' })
   @ApiResponse({ status: 204, description: 'Event deleted successfully' })
   @ApiResponse({ status: 404, description: 'Event not found' })
@@ -78,6 +82,7 @@ export class EventController {
 
   @Put(':id')
   @ApiBearerAuth()
+  @Roles(Role.ADMIN, Role.ORGANIZER)
   @ApiOperation({ summary: 'Update an event' })
   @ApiResponse({ status: 200, description: 'Event updated successfully' })
   @ApiResponse({ status: 404, description: 'Event not found' })
@@ -91,6 +96,7 @@ export class EventController {
 
   @Patch(':id/status')
   @ApiBearerAuth()
+  @Roles(Role.ADMIN, Role.ORGANIZER)
   @ApiOperation({ summary: 'Update event status' })
   updateStatus(
     @Param('id') id: string,

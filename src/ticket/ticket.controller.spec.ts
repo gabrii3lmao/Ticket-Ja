@@ -19,6 +19,7 @@ const mockUserService = {
 };
 
 const userId = 'user-uuid';
+const user = { id: userId, role: 'BUYER' as const };
 
 describe('TicketController', () => {
   let controller: TicketController;
@@ -51,7 +52,7 @@ describe('TicketController', () => {
 
       mockTicketService.findAll.mockResolvedValue(result);
 
-      const response = await controller.findAll(query, userId);
+      const response = await controller.findAll(query, user);
 
       expect(ticketService.findAll).toHaveBeenCalledWith(query, userId);
       expect(response).toEqual(result);
@@ -59,13 +60,13 @@ describe('TicketController', () => {
   });
 
   describe('findOne', () => {
-    it('should call ticketService.findOne with id and userId', async () => {
+    it('should call ticketService.findOne with id and user', async () => {
       const ticket = { id: 'ticket-1', code: 'TKT-ABC', status: 'VALID' };
       mockTicketService.findOne.mockResolvedValue(ticket);
 
-      const result = await controller.findOne('ticket-1', userId);
+      const result = await controller.findOne('ticket-1', user);
 
-      expect(ticketService.findOne).toHaveBeenCalledWith('ticket-1', userId);
+      expect(ticketService.findOne).toHaveBeenCalledWith('ticket-1', user);
       expect(result).toEqual(ticket);
     });
   });
@@ -87,13 +88,13 @@ describe('TicketController', () => {
   });
 
   describe('markAsUsed', () => {
-    it('should call ticketService.markAsUsed with id and userId', async () => {
+    it('should call ticketService.markAsUsed with id and user', async () => {
       const ticket = { id: 'ticket-1', status: 'USED' };
       mockTicketService.markAsUsed.mockResolvedValue(ticket);
 
-      const result = await controller.markAsUsed('ticket-1', userId);
+      const result = await controller.markAsUsed('ticket-1', user);
 
-      expect(ticketService.markAsUsed).toHaveBeenCalledWith('ticket-1', userId);
+      expect(ticketService.markAsUsed).toHaveBeenCalledWith('ticket-1', user);
       expect(result).toEqual(ticket);
     });
   });

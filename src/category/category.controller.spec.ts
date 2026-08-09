@@ -21,6 +21,7 @@ const mockUserService = {
 
 const eventId = 'event-uuid';
 const userId = 'user-uuid';
+const user = { id: userId, role: 'ORGANIZER' as const };
 
 describe('CategoryController', () => {
   let controller: CategoryController;
@@ -55,9 +56,9 @@ describe('CategoryController', () => {
 
       mockCategoryService.create.mockResolvedValue(createdCategory);
 
-      const result = await controller.create(eventId, dto, userId);
+      const result = await controller.create(eventId, dto, user);
 
-      expect(categoryService.create).toHaveBeenCalledWith(dto, eventId, userId);
+      expect(categoryService.create).toHaveBeenCalledWith(dto, eventId, user);
       expect(result).toEqual(createdCategory);
     });
   });
@@ -129,7 +130,7 @@ describe('CategoryController', () => {
   });
 
   describe('update', () => {
-    it('should call categoryService.update with id, userId and DTO', async () => {
+    it('should call categoryService.update with id, user and DTO', async () => {
       const dto = { name: 'Pista VIP' };
       const updatedCategory = {
         id: '1',
@@ -142,15 +143,15 @@ describe('CategoryController', () => {
 
       mockCategoryService.update.mockResolvedValue(updatedCategory);
 
-      const result = await controller.update('1', dto, userId);
+      const result = await controller.update('1', dto, user);
 
-      expect(categoryService.update).toHaveBeenCalledWith('1', userId, dto);
+      expect(categoryService.update).toHaveBeenCalledWith('1', user, dto);
       expect(result).toEqual(updatedCategory);
     });
   });
 
   describe('remove', () => {
-    it('should call categoryService.remove with id and userId', async () => {
+    it('should call categoryService.remove with id and user', async () => {
       const category = {
         id: '1',
         name: 'Pista Premium',
@@ -162,9 +163,9 @@ describe('CategoryController', () => {
 
       mockCategoryService.remove.mockResolvedValue(category);
 
-      const result = await controller.remove('1', userId);
+      const result = await controller.remove('1', user);
 
-      expect(categoryService.remove).toHaveBeenCalledWith('1', userId);
+      expect(categoryService.remove).toHaveBeenCalledWith('1', user);
       expect(result).toEqual(category);
     });
   });

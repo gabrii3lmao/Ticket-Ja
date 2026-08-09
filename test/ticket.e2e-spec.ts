@@ -3,9 +3,11 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
+import { PrismaService } from './../src/prisma.service';
 
 describe('Ticket (e2e)', () => {
   let app: INestApplication<App>;
+  let prisma: PrismaService;
   let accessToken: string;
   let venueId: string;
   let eventId: string;
@@ -31,6 +33,8 @@ describe('Ticket (e2e)', () => {
       }),
     );
     await app.init();
+
+    prisma = app.get(PrismaService);
   });
 
   afterAll(async () => {
@@ -46,6 +50,30 @@ describe('Ticket (e2e)', () => {
         expect(res.body.accessToken).toBeDefined();
         accessToken = res.body.accessToken;
       });
+  });
+
+  it('promotes the user to ORGANIZER with an organizer profile', async () => {
+    const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { role: 'ORGANIZER' },
+    });
+    await prisma.organizerProfile.create({
+      data: {
+        userId: user.id,
+        legalName: 'E2E Organizer',
+        document: '12345678000100',
+      },
+    });
+
+    const login = await request(app.getHttpServer())
+      .post('/auth/signin')
+      .send({ email, password })
+      .expect(200);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+    accessToken = login.body.accessToken;
+    expect(accessToken).toBeDefined();
   });
 
   it('POST /venue', () => {

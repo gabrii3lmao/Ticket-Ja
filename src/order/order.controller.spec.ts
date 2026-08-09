@@ -43,7 +43,10 @@ describe('OrderController', () => {
 
       mockOrderService.create.mockResolvedValue(createdOrder);
 
-      const result = await controller.create(dto, 'user-uuid');
+      const result = await controller.create(dto, {
+        id: 'user-uuid',
+        role: 'BUYER' as const,
+      });
 
       expect(orderService.create).toHaveBeenCalledWith(dto, 'user-uuid');
       expect(result).toEqual(createdOrder);

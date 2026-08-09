@@ -34,6 +34,8 @@ const mockPrisma = {
 
 const eventId = 'event-uuid';
 const userId = 'user-uuid';
+const adminUser = { id: 'admin-uuid', role: 'ADMIN' as const };
+const user = { id: userId, role: 'ORGANIZER' as const };
 const eventStartDate = new Date('2026-09-15T20:00:00.000Z');
 
 const baseEvent = {
@@ -41,7 +43,7 @@ const baseEvent = {
   name: 'Rock in Rio',
   startDate: eventStartDate,
   endDate: new Date('2026-09-16T04:00:00.000Z'),
-  organizerId: userId,
+  organizerProfile: { userId },
   venue: { capacity: 2000 },
 };
 
@@ -80,11 +82,11 @@ describe('CategoryService', () => {
       prisma.orderItem.aggregate.mockResolvedValue({ _sum: { quantity: 0 } });
       prisma.category.create.mockResolvedValue(createdCategory);
 
-      const result = await service.create(dto, eventId, userId);
+      const result = await service.create(dto, eventId, user);
 
       expect(prisma.event.findUnique).toHaveBeenCalledWith({
         where: { id: eventId },
-        include: { venue: true },
+        include: { organizerProfile: true, venue: true },
       });
       expect(prisma.category.aggregate).toHaveBeenCalledWith({
         where: { eventId },
@@ -105,10 +107,10 @@ describe('CategoryService', () => {
 
       prisma.event.findUnique.mockResolvedValue({
         ...baseEvent,
-        organizerId: 'other-user',
+        organizerProfile: { userId: 'other-user' },
       });
 
-      await expect(service.create(dto, eventId, userId)).rejects.toThrow(
+      await expect(service.create(dto, eventId, user)).rejects.toThrow(
         ForbiddenException,
       );
       expect(prisma.category.create).not.toHaveBeenCalled();
@@ -121,7 +123,7 @@ describe('CategoryService', () => {
       prisma.category.aggregate.mockResolvedValue({ _sum: { quantity: 1500 } });
       prisma.orderItem.aggregate.mockResolvedValue({ _sum: { quantity: 0 } });
 
-      await expect(service.create(dto, eventId, userId)).rejects.toThrow(
+      await expect(service.create(dto, eventId, user)).rejects.toThrow(
         BadRequestException,
       );
       expect(prisma.category.create).not.toHaveBeenCalled();
@@ -134,7 +136,7 @@ describe('CategoryService', () => {
       prisma.category.aggregate.mockResolvedValue({ _sum: { quantity: 1000 } });
       prisma.orderItem.aggregate.mockResolvedValue({ _sum: { quantity: 900 } });
 
-      await expect(service.create(dto, eventId, userId)).rejects.toThrow(
+      await expect(service.create(dto, eventId, user)).rejects.toThrow(
         BadRequestException,
       );
       expect(prisma.category.create).not.toHaveBeenCalled();
@@ -150,7 +152,7 @@ describe('CategoryService', () => {
 
       prisma.event.findUnique.mockResolvedValue(baseEvent);
 
-      await expect(service.create(dto, eventId, userId)).rejects.toThrow(
+      await expect(service.create(dto, eventId, user)).rejects.toThrow(
         BadRequestException,
       );
       expect(prisma.category.create).not.toHaveBeenCalled();
@@ -166,7 +168,7 @@ describe('CategoryService', () => {
 
       prisma.event.findUnique.mockResolvedValue(baseEvent);
 
-      await expect(service.create(dto, eventId, userId)).rejects.toThrow(
+      await expect(service.create(dto, eventId, user)).rejects.toThrow(
         BadRequestException,
       );
       expect(prisma.category.create).not.toHaveBeenCalled();
@@ -183,7 +185,7 @@ describe('CategoryService', () => {
 
       prisma.event.findUnique.mockResolvedValue(baseEvent);
 
-      await expect(service.create(dto, eventId, userId)).rejects.toThrow(
+      await expect(service.create(dto, eventId, user)).rejects.toThrow(
         BadRequestException,
       );
       expect(prisma.category.create).not.toHaveBeenCalled();
@@ -203,7 +205,7 @@ describe('CategoryService', () => {
       prisma.orderItem.aggregate.mockResolvedValue({ _sum: { quantity: 0 } });
       prisma.category.create.mockResolvedValue(createdCategory);
 
-      const result = await service.create(dto, eventId, userId);
+      const result = await service.create(dto, eventId, user);
 
       expect(result).toEqual(createdCategory);
     });
@@ -227,7 +229,7 @@ describe('CategoryService', () => {
       prisma.orderItem.aggregate.mockResolvedValue({ _sum: { quantity: 0 } });
       prisma.category.create.mockResolvedValue(createdCategory);
 
-      const result = await service.create(dto, eventId, userId);
+      const result = await service.create(dto, eventId, user);
 
       expect(prisma.category.create).toHaveBeenCalled();
       expect(result).toEqual(createdCategory);
@@ -245,7 +247,7 @@ describe('CategoryService', () => {
 
       prisma.event.findUnique.mockResolvedValue(baseEvent);
 
-      await expect(service.create(dto, eventId, userId)).rejects.toThrow(
+      await expect(service.create(dto, eventId, user)).rejects.toThrow(
         BadRequestException,
       );
       expect(prisma.category.create).not.toHaveBeenCalled();
@@ -426,7 +428,7 @@ describe('CategoryService', () => {
       prisma.category.findUnique.mockResolvedValue(existingCategory);
       prisma.event.findUnique.mockResolvedValue({
         id: eventId,
-        organizerId: userId,
+        organizerProfile: { userId },
         venue: { capacity: 2000 },
       });
       prisma.category.update.mockResolvedValue({
@@ -434,14 +436,14 @@ describe('CategoryService', () => {
         ...updateDto,
       });
 
-      const result = await service.update('1', userId, updateDto);
+      const result = await service.update('1', user, updateDto);
 
       expect(prisma.category.findUnique).toHaveBeenCalledWith({
         where: { id: '1' },
       });
       expect(prisma.event.findUnique).toHaveBeenCalledWith({
         where: { id: eventId },
-        include: { venue: true },
+        include: { organizerProfile: true, venue: true },
       });
       expect(prisma.category.update).toHaveBeenCalledWith({
         where: { id: '1' },
@@ -464,7 +466,7 @@ describe('CategoryService', () => {
       prisma.category.findUnique.mockResolvedValue(existingCategory);
       prisma.event.findUnique.mockResolvedValue({
         id: eventId,
-        organizerId: userId,
+        organizerProfile: { userId },
         startDate: eventStartDate,
         venue: { capacity: 2000 },
       });
@@ -473,7 +475,7 @@ describe('CategoryService', () => {
         _sum: { quantity: 1500 },
       });
 
-      await expect(service.update('1', userId, updateDto)).rejects.toThrow(
+      await expect(service.update('1', user, updateDto)).rejects.toThrow(
         BadRequestException,
       );
       expect(prisma.category.update).not.toHaveBeenCalled();
@@ -493,11 +495,11 @@ describe('CategoryService', () => {
       prisma.category.findUnique.mockResolvedValue(existingCategory);
       prisma.event.findUnique.mockResolvedValue({
         id: eventId,
-        organizerId: userId,
+        organizerProfile: { userId },
         startDate: eventStartDate,
       });
 
-      await expect(service.update('1', userId, updateDto)).rejects.toThrow(
+      await expect(service.update('1', user, updateDto)).rejects.toThrow(
         BadRequestException,
       );
       expect(prisma.category.update).not.toHaveBeenCalled();
@@ -517,11 +519,11 @@ describe('CategoryService', () => {
       prisma.category.findUnique.mockResolvedValue(existingCategory);
       prisma.event.findUnique.mockResolvedValue({
         id: eventId,
-        organizerId: userId,
+        organizerProfile: { userId },
         startDate: eventStartDate,
       });
 
-      await expect(service.update('1', userId, updateDto)).rejects.toThrow(
+      await expect(service.update('1', user, updateDto)).rejects.toThrow(
         BadRequestException,
       );
       expect(prisma.category.update).not.toHaveBeenCalled();
@@ -531,7 +533,7 @@ describe('CategoryService', () => {
       prisma.category.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.update('nonexistent', userId, { name: 'Test' }),
+        service.update('nonexistent', user, { name: 'Test' }),
       ).rejects.toThrow(NotFoundException);
       expect(prisma.category.update).not.toHaveBeenCalled();
     });
@@ -549,13 +551,45 @@ describe('CategoryService', () => {
       prisma.category.findUnique.mockResolvedValue(existingCategory);
       prisma.event.findUnique.mockResolvedValue({
         id: eventId,
-        organizerId: 'other-user',
+        organizerProfile: { userId: 'other-user' },
       });
 
-      await expect(
-        service.update('1', userId, { name: 'Test' }),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.update('1', user, { name: 'Test' })).rejects.toThrow(
+        ForbiddenException,
+      );
       expect(prisma.category.update).not.toHaveBeenCalled();
+    });
+
+    it('should allow ADMIN to update a category of an event they do not own', async () => {
+      const existingCategory = {
+        id: '1',
+        name: 'Pista Premium',
+        price: 250,
+        quantity: 1000,
+        eventId,
+        createdAt: new Date(),
+      };
+      const updateDto = { name: 'Pista VIP' };
+
+      prisma.category.findUnique.mockResolvedValue(existingCategory);
+      prisma.event.findUnique.mockResolvedValue({
+        id: eventId,
+        organizerProfile: { userId: 'other-user' },
+        startDate: eventStartDate,
+        venue: { capacity: 2000 },
+      });
+      prisma.category.update.mockResolvedValue({
+        ...existingCategory,
+        ...updateDto,
+      });
+
+      const result = await service.update('1', adminUser, updateDto);
+
+      expect(prisma.category.update).toHaveBeenCalledWith({
+        where: { id: '1' },
+        data: updateDto,
+      });
+      expect(result.name).toBe('Pista VIP');
     });
 
     it('should update category when salesEnd equals the event startDate', async () => {
@@ -572,7 +606,7 @@ describe('CategoryService', () => {
       prisma.category.findUnique.mockResolvedValue(existingCategory);
       prisma.event.findUnique.mockResolvedValue({
         id: eventId,
-        organizerId: userId,
+        organizerProfile: { userId },
         startDate: eventStartDate,
         venue: { capacity: 2000 },
       });
@@ -581,7 +615,7 @@ describe('CategoryService', () => {
         ...updateDto,
       });
 
-      const result = await service.update('1', userId, updateDto);
+      const result = await service.update('1', user, updateDto);
 
       expect(prisma.category.update).toHaveBeenCalledWith({
         where: { id: '1' },
@@ -605,18 +639,19 @@ describe('CategoryService', () => {
       prisma.category.findUnique.mockResolvedValue(category);
       prisma.event.findUnique.mockResolvedValue({
         id: eventId,
-        organizerId: userId,
+        organizerProfile: { userId },
       });
       prisma.orderItem.count.mockResolvedValue(0);
       prisma.category.delete.mockResolvedValue(category);
 
-      const result = await service.remove('1', userId);
+      const result = await service.remove('1', user);
 
       expect(prisma.category.findUnique).toHaveBeenCalledWith({
         where: { id: '1' },
       });
       expect(prisma.event.findUnique).toHaveBeenCalledWith({
         where: { id: eventId },
+        include: { organizerProfile: true, venue: true },
       });
       expect(prisma.orderItem.count).toHaveBeenCalledWith({
         where: { categoryId: '1' },
@@ -630,7 +665,7 @@ describe('CategoryService', () => {
     it('should throw NotFoundException when category not found', async () => {
       prisma.category.findUnique.mockResolvedValue(null);
 
-      await expect(service.remove('nonexistent', userId)).rejects.toThrow(
+      await expect(service.remove('nonexistent', user)).rejects.toThrow(
         NotFoundException,
       );
       expect(prisma.category.delete).not.toHaveBeenCalled();
@@ -649,10 +684,10 @@ describe('CategoryService', () => {
       prisma.category.findUnique.mockResolvedValue(category);
       prisma.event.findUnique.mockResolvedValue({
         id: eventId,
-        organizerId: 'other-user',
+        organizerProfile: { userId: 'other-user' },
       });
 
-      await expect(service.remove('1', userId)).rejects.toThrow(
+      await expect(service.remove('1', user)).rejects.toThrow(
         ForbiddenException,
       );
       expect(prisma.category.delete).not.toHaveBeenCalled();
@@ -671,11 +706,11 @@ describe('CategoryService', () => {
       prisma.category.findUnique.mockResolvedValue(category);
       prisma.event.findUnique.mockResolvedValue({
         id: eventId,
-        organizerId: userId,
+        organizerProfile: { userId },
       });
       prisma.orderItem.count.mockResolvedValue(5);
 
-      await expect(service.remove('1', userId)).rejects.toThrow(
+      await expect(service.remove('1', user)).rejects.toThrow(
         BadRequestException,
       );
       expect(prisma.category.delete).not.toHaveBeenCalled();

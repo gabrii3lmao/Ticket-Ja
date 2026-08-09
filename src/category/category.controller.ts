@@ -26,6 +26,8 @@ import {
   type UserPayload,
 } from 'src/auth/decorators/current-user.decorator';
 import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { Role } from 'generated/prisma/enums';
 
 @ApiTags('category')
 @Controller('event/:eventId/category')
@@ -34,6 +36,7 @@ export class CategoryController {
 
   @Post()
   @ApiBearerAuth()
+  @Roles(Role.ADMIN, Role.ORGANIZER)
   @ApiOperation({ summary: 'Create a new category' })
   @ApiResponse({ status: 201, description: 'Category created successfully' })
   create(
@@ -66,6 +69,7 @@ export class CategoryController {
 
   @Patch(':id')
   @ApiBearerAuth()
+  @Roles(Role.ADMIN, Role.ORGANIZER)
   @ApiOperation({ summary: 'Update a category' })
   @ApiResponse({ status: 200, description: 'Category updated successfully' })
   @ApiResponse({ status: 404, description: 'Category not found' })
@@ -80,6 +84,7 @@ export class CategoryController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiBearerAuth()
+  @Roles(Role.ADMIN, Role.ORGANIZER)
   @ApiOperation({ summary: 'Delete a category' })
   @ApiResponse({ status: 204, description: 'Category deleted successfully' })
   @ApiResponse({ status: 404, description: 'Category not found' })

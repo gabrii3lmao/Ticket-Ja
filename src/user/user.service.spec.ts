@@ -29,6 +29,10 @@ const mockPrisma = {
   venue: {
     deleteMany: jest.fn(),
   },
+  organizerProfile: {
+    findUnique: jest.fn(),
+    deleteMany: jest.fn(),
+  },
   order: {
     count: jest.fn(),
   },
@@ -166,7 +170,7 @@ describe('UserService', () => {
   });
 
   describe('deleteUser', () => {
-    it('should delete and return user when found', async () => {
+    it('should delete organizer-related data and user when found', async () => {
       const user = {
         id: '1',
         name: 'John',
@@ -177,9 +181,14 @@ describe('UserService', () => {
       };
 
       mockPrisma.user.findUnique.mockResolvedValue(user);
+      mockPrisma.organizerProfile.findUnique.mockResolvedValue({
+        id: 'org-1',
+        userId: '1',
+      });
       mockPrisma.order.count.mockResolvedValue(0);
       mockPrisma.event.deleteMany.mockResolvedValue({ count: 1 });
       mockPrisma.venue.deleteMany.mockResolvedValue({ count: 1 });
+      mockPrisma.organizerProfile.deleteMany.mockResolvedValue({ count: 1 });
       mockPrisma.user.delete.mockResolvedValue(user);
       mockPrisma.$transaction.mockImplementation(
         (cb: (tx: typeof mockPrisma) => Promise<unknown>) => cb(mockPrisma),
@@ -191,14 +200,49 @@ describe('UserService', () => {
       expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
         where: { id: '1' },
       });
+      expect(mockPrisma.organizerProfile.findUnique).toHaveBeenCalledWith({
+        where: { userId: '1' },
+      });
       expect(mockPrisma.event.deleteMany).toHaveBeenCalledWith({
-        where: { organizerId: '1' },
+        where: { organizerProfileId: 'org-1' },
       });
       expect(mockPrisma.venue.deleteMany).toHaveBeenCalledWith({
-        where: { organizerId: '1' },
+        where: { organizerProfileId: 'org-1' },
+      });
+      expect(mockPrisma.organizerProfile.deleteMany).toHaveBeenCalledWith({
+        where: { userId: '1' },
       });
       expect(mockPrisma.user.delete).toHaveBeenCalledWith({
         where: { id: '1' },
+      });
+      expect(result).toEqual(user);
+    });
+
+    it('should only delete the user when there is no organizer profile', async () => {
+      const user = {
+        id: '2',
+        name: 'Jane',
+        email: 'jane@mail.com',
+        passwordHash: 'hash',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      mockPrisma.user.findUnique.mockResolvedValue(user);
+      mockPrisma.organizerProfile.findUnique.mockResolvedValue(null);
+      mockPrisma.order.count.mockResolvedValue(0);
+      mockPrisma.user.delete.mockResolvedValue(user);
+      mockPrisma.$transaction.mockImplementation(
+        (cb: (tx: typeof mockPrisma) => Promise<unknown>) => cb(mockPrisma),
+      );
+
+      const result = await service.deleteUser('2');
+
+      expect(mockPrisma.event.deleteMany).not.toHaveBeenCalled();
+      expect(mockPrisma.venue.deleteMany).not.toHaveBeenCalled();
+      expect(mockPrisma.organizerProfile.deleteMany).not.toHaveBeenCalled();
+      expect(mockPrisma.user.delete).toHaveBeenCalledWith({
+        where: { id: '2' },
       });
       expect(result).toEqual(user);
     });
@@ -214,6 +258,7 @@ describe('UserService', () => {
       };
 
       mockPrisma.user.findUnique.mockResolvedValue(user);
+      mockPrisma.organizerProfile.findUnique.mockResolvedValue(null);
       mockPrisma.order.count.mockResolvedValue(3);
 
       await expect(service.deleteUser('1')).rejects.toThrow(

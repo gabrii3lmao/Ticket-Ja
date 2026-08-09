@@ -100,11 +100,16 @@ describe('AuthService', () => {
       const token = 'jwt-token';
       jwtService.sign.mockReturnValue(token);
 
-      const result = service.login({ id: 'user-id', email: 'john@mail.com' });
+      const result = service.login({
+        id: 'user-id',
+        email: 'john@mail.com',
+        role: 'BUYER',
+      });
 
       expect(jwtService.sign).toHaveBeenCalledWith({
         sub: 'user-id',
         email: 'john@mail.com',
+        role: 'BUYER',
       });
       expect(result).toEqual({ accessToken: token });
     });
@@ -117,6 +122,7 @@ describe('AuthService', () => {
         id: 'user-id',
         name: 'John',
         email: 'john@mail.com',
+        role: 'BUYER',
       };
       const token = 'jwt-token';
 
@@ -129,6 +135,7 @@ describe('AuthService', () => {
       expect(jwtService.sign).toHaveBeenCalledWith({
         sub: 'user-id',
         email: 'john@mail.com',
+        role: 'BUYER',
       });
       expect(result).toEqual({ accessToken: token });
     });

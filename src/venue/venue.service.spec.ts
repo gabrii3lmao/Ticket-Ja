@@ -1,5 +1,10 @@
 jest.mock('generated/prisma/client', () => ({
   PrismaClient: class {},
+  Role: {
+    BUYER: 'BUYER',
+    ORGANIZER: 'ORGANIZER',
+    ADMIN: 'ADMIN',
+  },
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
@@ -12,6 +17,10 @@ import { VenueService } from './venue.service';
 import { PrismaService } from 'src/prisma.service';
 
 const userId = 'user-uuid';
+const orgProfileId = 'org-uuid';
+const user = { id: userId, role: 'ORGANIZER' as const };
+const adminUser = { id: 'admin-uuid', role: 'ADMIN' as const };
+const organizerProfile = { id: orgProfileId, userId };
 
 const mockPrisma = {
   $transaction: jest.fn(),
@@ -31,6 +40,9 @@ const mockPrisma = {
   },
   orderItem: {
     aggregate: jest.fn(),
+  },
+  organizerProfile: {
+    findUnique: jest.fn(),
   },
 };
 
@@ -55,7 +67,7 @@ describe('VenueService', () => {
   });
 
   describe('create', () => {
-    it('should create a venue linked to the user', async () => {
+    it('should create a venue linked to the user organizer profile', async () => {
       const dto = {
         name: 'Maracanã',
         capacity: 50000,
@@ -64,20 +76,40 @@ describe('VenueService', () => {
       };
       const createdVenue = {
         id: 'uuid',
-        organizerId: userId,
+        organizerProfileId: orgProfileId,
         ...dto,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
+      prisma.organizerProfile.findUnique.mockResolvedValue(organizerProfile);
       prisma.venue.create.mockResolvedValue(createdVenue);
 
       const result = await service.create(dto, userId);
 
+      expect(prisma.organizerProfile.findUnique).toHaveBeenCalledWith({
+        where: { userId },
+      });
       expect(prisma.venue.create).toHaveBeenCalledWith({
-        data: { ...dto, organizerId: userId },
+        data: { ...dto, organizerProfileId: orgProfileId },
       });
       expect(result).toEqual(createdVenue);
+    });
+
+    it('should throw ForbiddenException when user has no organizer profile', async () => {
+      const dto = {
+        name: 'Maracanã',
+        capacity: 50000,
+        city: 'Rio de Janeiro',
+        state: 'RJ',
+      };
+
+      prisma.organizerProfile.findUnique.mockResolvedValue(null);
+
+      await expect(service.create(dto, userId)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(prisma.venue.create).not.toHaveBeenCalled();
     });
   });
 
@@ -223,24 +255,30 @@ describe('VenueService', () => {
   });
 
   describe('update', () => {
+    const ownedVenue = (overrides: Record<string, unknown> = {}) => ({
+      id: '1',
+      name: 'Maracanã',
+      capacity: 50000,
+      organizerProfile,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...overrides,
+    });
+
     it('should update and return venue when user owns it', async () => {
-      const existingVenue = {
-        id: '1',
-        name: 'Maracanã',
-        capacity: 50000,
-        organizerId: userId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
       const updateDto = { name: 'Maracanã Reformado' };
 
-      prisma.venue.findUnique.mockResolvedValue(existingVenue);
-      prisma.venue.update.mockResolvedValue({ ...existingVenue, ...updateDto });
+      prisma.venue.findUnique.mockResolvedValue(ownedVenue());
+      prisma.venue.update.mockResolvedValue({
+        ...ownedVenue(),
+        ...updateDto,
+      });
 
-      const result = await service.update('1', userId, updateDto);
+      const result = await service.update('1', user, updateDto);
 
       expect(prisma.venue.findUnique).toHaveBeenCalledWith({
         where: { id: '1' },
+        include: { organizerProfile: true },
       });
       expect(prisma.venue.update).toHaveBeenCalledWith({
         where: { id: '1' },
@@ -249,45 +287,54 @@ describe('VenueService', () => {
       expect(result.name).toBe('Maracanã Reformado');
     });
 
-    it('should throw ForbiddenException when venue not found', async () => {
+    it('should throw NotFoundException when venue not found', async () => {
       prisma.venue.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.update('nonexistent', userId, { name: 'Test' }),
-      ).rejects.toThrow(ForbiddenException);
+        service.update('nonexistent', user, { name: 'Test' }),
+      ).rejects.toThrow(NotFoundException);
       expect(prisma.venue.update).not.toHaveBeenCalled();
     });
 
     it('should throw ForbiddenException when user is not the owner', async () => {
-      const existingVenue = {
-        id: '1',
-        name: 'Maracanã',
-        capacity: 50000,
-        organizerId: 'other-user',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      prisma.venue.findUnique.mockResolvedValue(
+        ownedVenue({
+          organizerProfile: { id: 'other-org', userId: 'other-user' },
+        }),
+      );
 
-      prisma.venue.findUnique.mockResolvedValue(existingVenue);
-
-      await expect(
-        service.update('1', userId, { name: 'Test' }),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.update('1', user, { name: 'Test' })).rejects.toThrow(
+        ForbiddenException,
+      );
       expect(prisma.venue.update).not.toHaveBeenCalled();
     });
 
+    it('should allow ADMIN to update a venue they do not own', async () => {
+      const updateDto = { name: 'Admin Venue' };
+
+      prisma.venue.findUnique.mockResolvedValue(
+        ownedVenue({
+          organizerProfile: { id: 'other-org', userId: 'other-user' },
+        }),
+      );
+      prisma.venue.update.mockResolvedValue({
+        ...ownedVenue(),
+        ...updateDto,
+      });
+
+      const result = await service.update('1', adminUser, updateDto);
+
+      expect(prisma.venue.update).toHaveBeenCalledWith({
+        where: { id: '1' },
+        data: updateDto,
+      });
+      expect(result.name).toBe('Admin Venue');
+    });
+
     it('should throw BadRequestException when reducing capacity below allocated tickets', async () => {
-      const existingVenue = {
-        id: '1',
-        name: 'Maracanã',
-        capacity: 50000,
-        organizerId: userId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
       const updateDto = { capacity: 50000 };
 
-      prisma.venue.findUnique.mockResolvedValue(existingVenue);
+      prisma.venue.findUnique.mockResolvedValue(ownedVenue());
       prisma.category.aggregate.mockResolvedValue({
         _sum: { quantity: 40000 },
       });
@@ -295,32 +342,24 @@ describe('VenueService', () => {
         _sum: { quantity: 15000 },
       });
 
-      await expect(service.update('1', userId, updateDto)).rejects.toThrow(
+      await expect(service.update('1', user, updateDto)).rejects.toThrow(
         BadRequestException,
       );
       expect(prisma.venue.update).not.toHaveBeenCalled();
     });
 
     it('should allow increasing capacity above allocated tickets', async () => {
-      const existingVenue = {
-        id: '1',
-        name: 'Maracanã',
-        capacity: 50000,
-        organizerId: userId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
       const updateDto = { capacity: 100000 };
 
-      prisma.venue.findUnique.mockResolvedValue(existingVenue);
+      prisma.venue.findUnique.mockResolvedValue(ownedVenue());
       prisma.category.aggregate.mockResolvedValue({ _sum: { quantity: 0 } });
       prisma.orderItem.aggregate.mockResolvedValue({ _sum: { quantity: 0 } });
       prisma.venue.update.mockResolvedValue({
-        ...existingVenue,
+        ...ownedVenue(),
         ...updateDto,
       });
 
-      const result = await service.update('1', userId, updateDto);
+      const result = await service.update('1', user, updateDto);
 
       expect(prisma.venue.update).toHaveBeenCalledWith({
         where: { id: '1' },
@@ -336,7 +375,7 @@ describe('VenueService', () => {
         id: '1',
         name: 'Maracanã',
         capacity: 50000,
-        organizerId: userId,
+        organizerProfile,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -345,10 +384,11 @@ describe('VenueService', () => {
       prisma.event.count.mockResolvedValue(0);
       prisma.venue.delete.mockResolvedValue(venue);
 
-      const result = await service.delete('1', userId);
+      const result = await service.delete('1', user);
 
       expect(prisma.venue.findUnique).toHaveBeenCalledWith({
         where: { id: '1' },
+        include: { organizerProfile: true },
       });
       expect(prisma.event.count).toHaveBeenCalledWith({
         where: { venueId: '1' },
@@ -357,11 +397,11 @@ describe('VenueService', () => {
       expect(result).toEqual(venue);
     });
 
-    it('should throw ForbiddenException when venue not found', async () => {
+    it('should throw NotFoundException when venue not found', async () => {
       prisma.venue.findUnique.mockResolvedValue(null);
 
-      await expect(service.delete('nonexistent', userId)).rejects.toThrow(
-        ForbiddenException,
+      await expect(service.delete('nonexistent', user)).rejects.toThrow(
+        NotFoundException,
       );
       expect(prisma.venue.delete).not.toHaveBeenCalled();
     });
@@ -371,17 +411,37 @@ describe('VenueService', () => {
         id: '1',
         name: 'Maracanã',
         capacity: 50000,
-        organizerId: 'other-user',
+        organizerProfile: { id: 'other-org', userId: 'other-user' },
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
       prisma.venue.findUnique.mockResolvedValue(venue);
 
-      await expect(service.delete('1', userId)).rejects.toThrow(
+      await expect(service.delete('1', user)).rejects.toThrow(
         ForbiddenException,
       );
       expect(prisma.venue.delete).not.toHaveBeenCalled();
+    });
+
+    it('should allow ADMIN to delete a venue they do not own', async () => {
+      const venue = {
+        id: '1',
+        name: 'Maracanã',
+        capacity: 50000,
+        organizerProfile: { id: 'other-org', userId: 'other-user' },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      prisma.venue.findUnique.mockResolvedValue(venue);
+      prisma.event.count.mockResolvedValue(0);
+      prisma.venue.delete.mockResolvedValue(venue);
+
+      const result = await service.delete('1', adminUser);
+
+      expect(prisma.venue.delete).toHaveBeenCalledWith({ where: { id: '1' } });
+      expect(result).toEqual(venue);
     });
 
     it('should throw BadRequestException when venue has associated events', async () => {
@@ -389,7 +449,7 @@ describe('VenueService', () => {
         id: '1',
         name: 'Maracanã',
         capacity: 50000,
-        organizerId: userId,
+        organizerProfile,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -397,7 +457,7 @@ describe('VenueService', () => {
       prisma.venue.findUnique.mockResolvedValue(venue);
       prisma.event.count.mockResolvedValue(3);
 
-      await expect(service.delete('1', userId)).rejects.toThrow(
+      await expect(service.delete('1', user)).rejects.toThrow(
         BadRequestException,
       );
       expect(prisma.venue.delete).not.toHaveBeenCalled();

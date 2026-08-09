@@ -1,5 +1,10 @@
 jest.mock('generated/prisma/client', () => ({
   PrismaClient: class {},
+  Role: {
+    BUYER: 'BUYER',
+    ORGANIZER: 'ORGANIZER',
+    ADMIN: 'ADMIN',
+  },
   EventStatus: {
     DRAFT: 'DRAFT',
     PUBLISHED: 'PUBLISHED',
@@ -33,9 +38,16 @@ const mockPrisma = {
   category: {
     count: jest.fn(),
   },
+  organizerProfile: {
+    findUnique: jest.fn(),
+  },
 };
 
 const userId = 'user-uuid';
+const orgProfileId = 'org-uuid';
+const user = { id: userId, role: 'ORGANIZER' as const };
+const adminUser = { id: 'admin-uuid', role: 'ADMIN' as const };
+const organizerProfile = { id: orgProfileId, userId };
 
 describe('EventService', () => {
   let service: EventService;
@@ -58,28 +70,37 @@ describe('EventService', () => {
   });
 
   describe('create', () => {
-    it('should create an event linked to the user when the venue belongs to them', async () => {
+    it('should create an event linked to the organizer profile when the venue belongs to them', async () => {
       const dto = {
         name: 'Rock in Rio',
         artists: ['Artista'],
         startDate: new Date('2026-12-01'),
         venueId: 'venue-uuid',
       };
-      const createdEvent = { id: 'uuid', ...dto, organizerId: userId };
+      const createdEvent = {
+        id: 'uuid',
+        ...dto,
+        organizerProfileId: orgProfileId,
+      };
 
+      prisma.organizerProfile.findUnique.mockResolvedValue(organizerProfile);
       prisma.venue.findUnique.mockResolvedValue({
         id: 'venue-uuid',
-        organizerId: userId,
+        organizerProfile,
       });
       prisma.event.create.mockResolvedValue(createdEvent);
 
-      const result = await service.create(dto, userId);
+      const result = await service.create(dto, user);
 
+      expect(prisma.organizerProfile.findUnique).toHaveBeenCalledWith({
+        where: { userId },
+      });
       expect(prisma.venue.findUnique).toHaveBeenCalledWith({
         where: { id: 'venue-uuid' },
+        include: { organizerProfile: true },
       });
       expect(prisma.event.create).toHaveBeenCalledWith({
-        data: { ...dto, organizerId: userId },
+        data: { ...dto, organizerProfileId: orgProfileId },
       });
       expect(result).toEqual(createdEvent);
     });
@@ -93,8 +114,24 @@ describe('EventService', () => {
         venueId: 'venue-uuid',
       };
 
-      await expect(service.create(dto, userId)).rejects.toThrow(
+      await expect(service.create(dto, user)).rejects.toThrow(
         BadRequestException,
+      );
+      expect(prisma.event.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw ForbiddenException when user has no organizer profile', async () => {
+      const dto = {
+        name: 'Rock in Rio',
+        artists: ['Artista'],
+        startDate: new Date('2026-12-01'),
+        venueId: 'venue-uuid',
+      };
+
+      prisma.organizerProfile.findUnique.mockResolvedValue(null);
+
+      await expect(service.create(dto, user)).rejects.toThrow(
+        ForbiddenException,
       );
       expect(prisma.event.create).not.toHaveBeenCalled();
     });
@@ -107,9 +144,10 @@ describe('EventService', () => {
         venueId: 'nonexistent',
       };
 
+      prisma.organizerProfile.findUnique.mockResolvedValue(organizerProfile);
       prisma.venue.findUnique.mockResolvedValue(null);
 
-      await expect(service.create(dto, userId)).rejects.toThrow(
+      await expect(service.create(dto, user)).rejects.toThrow(
         NotFoundException,
       );
       expect(prisma.event.create).not.toHaveBeenCalled();
@@ -123,12 +161,13 @@ describe('EventService', () => {
         venueId: 'venue-uuid',
       };
 
+      prisma.organizerProfile.findUnique.mockResolvedValue(organizerProfile);
       prisma.venue.findUnique.mockResolvedValue({
         id: 'venue-uuid',
-        organizerId: 'other-user',
+        organizerProfile: { id: 'other-org', userId: 'other-user' },
       });
 
-      await expect(service.create(dto, userId)).rejects.toThrow(
+      await expect(service.create(dto, user)).rejects.toThrow(
         ForbiddenException,
       );
       expect(prisma.event.create).not.toHaveBeenCalled();
@@ -142,18 +181,23 @@ describe('EventService', () => {
         endDate: new Date('2026-12-01'),
         venueId: 'venue-uuid',
       };
-      const createdEvent = { id: 'uuid', ...dto, organizerId: userId };
+      const createdEvent = {
+        id: 'uuid',
+        ...dto,
+        organizerProfileId: orgProfileId,
+      };
 
+      prisma.organizerProfile.findUnique.mockResolvedValue(organizerProfile);
       prisma.venue.findUnique.mockResolvedValue({
         id: 'venue-uuid',
-        organizerId: userId,
+        organizerProfile,
       });
       prisma.event.create.mockResolvedValue(createdEvent);
 
-      const result = await service.create(dto, userId);
+      const result = await service.create(dto, user);
 
       expect(prisma.event.create).toHaveBeenCalledWith({
-        data: { ...dto, organizerId: userId },
+        data: { ...dto, organizerProfileId: orgProfileId },
       });
       expect(result).toEqual(createdEvent);
     });
@@ -314,21 +358,28 @@ describe('EventService', () => {
   });
 
   describe('update', () => {
+    const ownedEvent = (overrides: Record<string, unknown> = {}) => ({
+      id: '1',
+      name: 'Rock in Rio',
+      startDate: new Date('2026-12-01'),
+      organizerProfile,
+      ...overrides,
+    });
+
     it('should update and return event when user is the organizer', async () => {
-      const existingEvent = {
-        id: '1',
-        name: 'Rock in Rio',
-        organizerId: userId,
-      };
       const updateDto = { name: 'Updated Show' };
 
-      prisma.event.findUnique.mockResolvedValue(existingEvent);
-      prisma.event.update.mockResolvedValue({ ...existingEvent, ...updateDto });
+      prisma.event.findUnique.mockResolvedValue(ownedEvent());
+      prisma.event.update.mockResolvedValue({
+        ...ownedEvent(),
+        ...updateDto,
+      });
 
-      const result = await service.update('1', userId, updateDto);
+      const result = await service.update('1', user, updateDto);
 
       expect(prisma.event.findUnique).toHaveBeenCalledWith({
         where: { id: '1' },
+        include: { organizerProfile: true },
       });
       expect(prisma.event.update).toHaveBeenCalledWith({
         where: { id: '1' },
@@ -337,97 +388,100 @@ describe('EventService', () => {
       expect(result.name).toBe('Updated Show');
     });
 
-    it('should throw NotFoundException when event not found or not owned', async () => {
+    it('should throw NotFoundException when event not found', async () => {
       prisma.event.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.update('nonexistent', userId, { name: 'Test' }),
+        service.update('nonexistent', user, { name: 'Test' }),
       ).rejects.toThrow(NotFoundException);
       expect(prisma.event.update).not.toHaveBeenCalled();
     });
 
-    it('should throw NotFoundException when user is not the organizer', async () => {
-      prisma.event.findUnique.mockResolvedValue({
-        id: '1',
-        organizerId: 'other-user',
+    it('should throw ForbiddenException when user is not the organizer', async () => {
+      prisma.event.findUnique.mockResolvedValue(
+        ownedEvent({
+          organizerProfile: { id: 'other-org', userId: 'other-user' },
+        }),
+      );
+
+      await expect(service.update('1', user, { name: 'Test' })).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(prisma.event.update).not.toHaveBeenCalled();
+    });
+
+    it('should allow ADMIN to update an event they do not own', async () => {
+      const updateDto = { name: 'Admin Update' };
+
+      prisma.event.findUnique.mockResolvedValue(
+        ownedEvent({
+          organizerProfile: { id: 'other-org', userId: 'other-user' },
+        }),
+      );
+      prisma.event.update.mockResolvedValue({
+        ...ownedEvent(),
+        ...updateDto,
       });
 
-      await expect(
-        service.update('1', userId, { name: 'Test' }),
-      ).rejects.toThrow(NotFoundException);
-      expect(prisma.event.update).not.toHaveBeenCalled();
+      const result = await service.update('1', adminUser, updateDto);
+
+      expect(prisma.event.update).toHaveBeenCalledWith({
+        where: { id: '1' },
+        data: updateDto,
+      });
+      expect(result.name).toBe('Admin Update');
     });
 
     it('should throw BadRequestException when endDate is before the existing startDate', async () => {
-      const existingEvent = {
-        id: '1',
-        name: 'Rock in Rio',
-        startDate: new Date('2026-12-01'),
-        organizerId: userId,
-      };
-
-      prisma.event.findUnique.mockResolvedValue(existingEvent);
+      prisma.event.findUnique.mockResolvedValue(ownedEvent());
 
       await expect(
-        service.update('1', userId, { endDate: new Date('2026-11-01') }),
+        service.update('1', user, { endDate: new Date('2026-11-01') }),
       ).rejects.toThrow(BadRequestException);
       expect(prisma.event.update).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException when changing to a nonexistent venue', async () => {
-      const existingEvent = {
-        id: '1',
-        name: 'Rock in Rio',
-        organizerId: userId,
-      };
-
-      prisma.event.findUnique.mockResolvedValue(existingEvent);
+      prisma.event.findUnique.mockResolvedValue(ownedEvent());
       prisma.venue.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.update('1', userId, { venueId: 'nonexistent' }),
+        service.update('1', user, { venueId: 'nonexistent' }),
       ).rejects.toThrow(NotFoundException);
       expect(prisma.event.update).not.toHaveBeenCalled();
     });
 
     it('should throw ForbiddenException when changing to a venue of another user', async () => {
-      const existingEvent = {
-        id: '1',
-        name: 'Rock in Rio',
-        organizerId: userId,
-      };
-
-      prisma.event.findUnique.mockResolvedValue(existingEvent);
+      prisma.event.findUnique.mockResolvedValue(ownedEvent());
       prisma.venue.findUnique.mockResolvedValue({
         id: 'venue-uuid',
-        organizerId: 'other-user',
+        organizerProfile: { id: 'other-org', userId: 'other-user' },
       });
 
       await expect(
-        service.update('1', userId, { venueId: 'venue-uuid' }),
+        service.update('1', user, { venueId: 'venue-uuid' }),
       ).rejects.toThrow(ForbiddenException);
       expect(prisma.event.update).not.toHaveBeenCalled();
     });
 
     it('should allow changing venueId when the venue belongs to the user', async () => {
-      const existingEvent = {
-        id: '1',
-        name: 'Rock in Rio',
-        organizerId: userId,
-      };
       const updateDto = { venueId: 'new-venue' };
 
-      prisma.event.findUnique.mockResolvedValue(existingEvent);
+      prisma.event.findUnique.mockResolvedValue(ownedEvent());
       prisma.venue.findUnique.mockResolvedValue({
         id: 'new-venue',
-        organizerId: userId,
+        organizerProfile,
       });
-      prisma.event.update.mockResolvedValue({ ...existingEvent, ...updateDto });
+      prisma.event.update.mockResolvedValue({
+        ...ownedEvent(),
+        ...updateDto,
+      });
 
-      const result = await service.update('1', userId, updateDto);
+      const result = await service.update('1', user, updateDto);
 
       expect(prisma.venue.findUnique).toHaveBeenCalledWith({
         where: { id: 'new-venue' },
+        include: { organizerProfile: true },
       });
       expect(prisma.event.update).toHaveBeenCalledWith({
         where: { id: '1' },
@@ -437,18 +491,15 @@ describe('EventService', () => {
     });
 
     it('should allow endDate equal to the existing startDate', async () => {
-      const existingEvent = {
-        id: '1',
-        name: 'Rock in Rio',
-        startDate: new Date('2026-12-01'),
-        organizerId: userId,
-      };
       const updateDto = { endDate: new Date('2026-12-01') };
 
-      prisma.event.findUnique.mockResolvedValue(existingEvent);
-      prisma.event.update.mockResolvedValue({ ...existingEvent, ...updateDto });
+      prisma.event.findUnique.mockResolvedValue(ownedEvent());
+      prisma.event.update.mockResolvedValue({
+        ...ownedEvent(),
+        ...updateDto,
+      });
 
-      const result = await service.update('1', userId, updateDto);
+      const result = await service.update('1', user, updateDto);
 
       expect(prisma.event.update).toHaveBeenCalledWith({
         where: { id: '1' },
@@ -459,14 +510,21 @@ describe('EventService', () => {
   });
 
   describe('updateStatus', () => {
+    const statusEvent = (status: string) => ({
+      id: '1',
+      status,
+      organizerProfile,
+    });
+
     it('should publish an event that has categories', async () => {
-      const event = { id: '1', status: 'DRAFT', organizerId: userId };
-
-      prisma.event.findUnique.mockResolvedValue(event);
+      prisma.event.findUnique.mockResolvedValue(statusEvent('DRAFT'));
       prisma.category.count.mockResolvedValue(2);
-      prisma.event.update.mockResolvedValue({ ...event, status: 'PUBLISHED' });
+      prisma.event.update.mockResolvedValue({
+        ...statusEvent('DRAFT'),
+        status: 'PUBLISHED',
+      });
 
-      const result = await service.updateStatus('1', userId, 'PUBLISHED');
+      const result = await service.updateStatus('1', user, 'PUBLISHED');
 
       expect(prisma.category.count).toHaveBeenCalledWith({
         where: { eventId: '1' },
@@ -479,35 +537,29 @@ describe('EventService', () => {
     });
 
     it('should throw BadRequestException when publishing without categories', async () => {
-      const event = { id: '1', status: 'DRAFT', organizerId: userId };
-
-      prisma.event.findUnique.mockResolvedValue(event);
+      prisma.event.findUnique.mockResolvedValue(statusEvent('DRAFT'));
       prisma.category.count.mockResolvedValue(0);
 
       await expect(
-        service.updateStatus('1', userId, 'PUBLISHED'),
+        service.updateStatus('1', user, 'PUBLISHED'),
       ).rejects.toThrow(BadRequestException);
       expect(prisma.event.update).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException on an invalid transition', async () => {
-      const event = { id: '1', status: 'DRAFT', organizerId: userId };
+      prisma.event.findUnique.mockResolvedValue(statusEvent('DRAFT'));
 
-      prisma.event.findUnique.mockResolvedValue(event);
-
-      await expect(
-        service.updateStatus('1', userId, 'FINISHED'),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.updateStatus('1', user, 'FINISHED')).rejects.toThrow(
+        BadRequestException,
+      );
       expect(prisma.event.update).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException when transitioning out of CANCELED', async () => {
-      const event = { id: '1', status: 'CANCELED', organizerId: userId };
-
-      prisma.event.findUnique.mockResolvedValue(event);
+      prisma.event.findUnique.mockResolvedValue(statusEvent('CANCELED'));
 
       await expect(
-        service.updateStatus('1', userId, 'PUBLISHED'),
+        service.updateStatus('1', user, 'PUBLISHED'),
       ).rejects.toThrow(BadRequestException);
       expect(prisma.event.update).not.toHaveBeenCalled();
     });
@@ -516,31 +568,50 @@ describe('EventService', () => {
       prisma.event.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.updateStatus('1', userId, 'PUBLISHED'),
+        service.updateStatus('1', user, 'PUBLISHED'),
       ).rejects.toThrow(NotFoundException);
       expect(prisma.event.update).not.toHaveBeenCalled();
     });
 
-    it('should throw NotFoundException when user is not the organizer', async () => {
+    it('should throw ForbiddenException when user is not the organizer', async () => {
+      prisma.event.findUnique.mockResolvedValue(statusEvent('DRAFT'));
       prisma.event.findUnique.mockResolvedValue({
         id: '1',
         status: 'DRAFT',
-        organizerId: 'other-user',
+        organizerProfile: { id: 'other-org', userId: 'other-user' },
       });
 
       await expect(
-        service.updateStatus('1', userId, 'PUBLISHED'),
-      ).rejects.toThrow(NotFoundException);
+        service.updateStatus('1', user, 'PUBLISHED'),
+      ).rejects.toThrow(ForbiddenException);
       expect(prisma.event.update).not.toHaveBeenCalled();
     });
 
+    it('should allow ADMIN to update the status of an event they do not own', async () => {
+      prisma.event.findUnique.mockResolvedValue({
+        id: '1',
+        status: 'DRAFT',
+        organizerProfile: { id: 'other-org', userId: 'other-user' },
+      });
+      prisma.category.count.mockResolvedValue(1);
+      prisma.event.update.mockResolvedValue({
+        id: '1',
+        status: 'PUBLISHED',
+      });
+
+      const result = await service.updateStatus('1', adminUser, 'PUBLISHED');
+
+      expect(result.status).toBe('PUBLISHED');
+    });
+
     it('should transition PUBLISHED to FINISHED', async () => {
-      const event = { id: '1', status: 'PUBLISHED', organizerId: userId };
+      prisma.event.findUnique.mockResolvedValue(statusEvent('PUBLISHED'));
+      prisma.event.update.mockResolvedValue({
+        ...statusEvent('PUBLISHED'),
+        status: 'FINISHED',
+      });
 
-      prisma.event.findUnique.mockResolvedValue(event);
-      prisma.event.update.mockResolvedValue({ ...event, status: 'FINISHED' });
-
-      const result = await service.updateStatus('1', userId, 'FINISHED');
+      const result = await service.updateStatus('1', user, 'FINISHED');
 
       expect(prisma.event.update).toHaveBeenCalledWith({
         where: { id: '1' },
@@ -550,12 +621,13 @@ describe('EventService', () => {
     });
 
     it('should transition PUBLISHED to CANCELED', async () => {
-      const event = { id: '1', status: 'PUBLISHED', organizerId: userId };
+      prisma.event.findUnique.mockResolvedValue(statusEvent('PUBLISHED'));
+      prisma.event.update.mockResolvedValue({
+        ...statusEvent('PUBLISHED'),
+        status: 'CANCELED',
+      });
 
-      prisma.event.findUnique.mockResolvedValue(event);
-      prisma.event.update.mockResolvedValue({ ...event, status: 'CANCELED' });
-
-      const result = await service.updateStatus('1', userId, 'CANCELED');
+      const result = await service.updateStatus('1', user, 'CANCELED');
 
       expect(prisma.event.update).toHaveBeenCalledWith({
         where: { id: '1' },
@@ -565,12 +637,13 @@ describe('EventService', () => {
     });
 
     it('should transition DRAFT to CANCELED', async () => {
-      const event = { id: '1', status: 'DRAFT', organizerId: userId };
+      prisma.event.findUnique.mockResolvedValue(statusEvent('DRAFT'));
+      prisma.event.update.mockResolvedValue({
+        ...statusEvent('DRAFT'),
+        status: 'CANCELED',
+      });
 
-      prisma.event.findUnique.mockResolvedValue(event);
-      prisma.event.update.mockResolvedValue({ ...event, status: 'CANCELED' });
-
-      const result = await service.updateStatus('1', userId, 'CANCELED');
+      const result = await service.updateStatus('1', user, 'CANCELED');
 
       expect(prisma.event.update).toHaveBeenCalledWith({
         where: { id: '1' },
@@ -580,12 +653,13 @@ describe('EventService', () => {
     });
 
     it('should transition FINISHED to CANCELED', async () => {
-      const event = { id: '1', status: 'FINISHED', organizerId: userId };
+      prisma.event.findUnique.mockResolvedValue(statusEvent('FINISHED'));
+      prisma.event.update.mockResolvedValue({
+        ...statusEvent('FINISHED'),
+        status: 'CANCELED',
+      });
 
-      prisma.event.findUnique.mockResolvedValue(event);
-      prisma.event.update.mockResolvedValue({ ...event, status: 'CANCELED' });
-
-      const result = await service.updateStatus('1', userId, 'CANCELED');
+      const result = await service.updateStatus('1', user, 'CANCELED');
 
       expect(prisma.event.update).toHaveBeenCalledWith({
         where: { id: '1' },
@@ -597,16 +671,17 @@ describe('EventService', () => {
 
   describe('delete', () => {
     it('should delete and return event when user is the organizer', async () => {
-      const event = { id: '1', name: 'Rock in Rio', organizerId: userId };
+      const event = { id: '1', name: 'Rock in Rio', organizerProfile };
 
       prisma.event.findUnique.mockResolvedValue(event);
       prisma.category.count.mockResolvedValue(0);
       prisma.event.delete.mockResolvedValue(event);
 
-      const result = await service.delete('1', userId);
+      const result = await service.delete('1', user);
 
       expect(prisma.event.findUnique).toHaveBeenCalledWith({
         where: { id: '1' },
+        include: { organizerProfile: true },
       });
       expect(prisma.category.count).toHaveBeenCalledWith({
         where: { eventId: '1' },
@@ -618,32 +693,48 @@ describe('EventService', () => {
     it('should throw NotFoundException when event not found', async () => {
       prisma.event.findUnique.mockResolvedValue(null);
 
-      await expect(service.delete('nonexistent', userId)).rejects.toThrow(
+      await expect(service.delete('nonexistent', user)).rejects.toThrow(
         NotFoundException,
       );
       expect(prisma.event.delete).not.toHaveBeenCalled();
     });
 
-    it('should throw NotFoundException when user is not the organizer', async () => {
+    it('should throw ForbiddenException when user is not the organizer', async () => {
       prisma.event.findUnique.mockResolvedValue({
         id: '1',
-        organizerId: 'other-user',
+        organizerProfile: { id: 'other-org', userId: 'other-user' },
       });
 
-      await expect(service.delete('1', userId)).rejects.toThrow(
-        NotFoundException,
+      await expect(service.delete('1', user)).rejects.toThrow(
+        ForbiddenException,
       );
       expect(prisma.event.delete).not.toHaveBeenCalled();
+    });
+
+    it('should allow ADMIN to delete an event they do not own', async () => {
+      const event = {
+        id: '1',
+        organizerProfile: { id: 'other-org', userId: 'other-user' },
+      };
+
+      prisma.event.findUnique.mockResolvedValue(event);
+      prisma.category.count.mockResolvedValue(0);
+      prisma.event.delete.mockResolvedValue(event);
+
+      const result = await service.delete('1', adminUser);
+
+      expect(prisma.event.delete).toHaveBeenCalledWith({ where: { id: '1' } });
+      expect(result).toEqual(event);
     });
 
     it('should throw BadRequestException when event has associated categories', async () => {
       prisma.event.findUnique.mockResolvedValue({
         id: '1',
-        organizerId: userId,
+        organizerProfile,
       });
       prisma.category.count.mockResolvedValue(3);
 
-      await expect(service.delete('1', userId)).rejects.toThrow(
+      await expect(service.delete('1', user)).rejects.toThrow(
         BadRequestException,
       );
       expect(prisma.event.delete).not.toHaveBeenCalled();

@@ -9,6 +9,7 @@ import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
 import { UserService } from 'src/user/user.service';
 
 const userId = 'user-uuid';
+const user = { id: userId, role: 'ORGANIZER' as const };
 
 const mockVenueService = {
   create: jest.fn(),
@@ -61,7 +62,7 @@ describe('VenueController', () => {
 
       mockVenueService.create.mockResolvedValue(createdVenue);
 
-      const result = await controller.create(dto, userId);
+      const result = await controller.create(dto, user);
 
       expect(venueService.create).toHaveBeenCalledWith(dto, userId);
       expect(result).toEqual(createdVenue);
@@ -134,7 +135,7 @@ describe('VenueController', () => {
   });
 
   describe('update', () => {
-    it('should call venueService.update with id, userId and DTO', async () => {
+    it('should call venueService.update with id, user and DTO', async () => {
       const dto = { name: 'Maracanã Reformado' };
       const updatedVenue = {
         id: '1',
@@ -146,15 +147,15 @@ describe('VenueController', () => {
 
       mockVenueService.update.mockResolvedValue(updatedVenue);
 
-      const result = await controller.update('1', dto, userId);
+      const result = await controller.update('1', dto, user);
 
-      expect(venueService.update).toHaveBeenCalledWith('1', userId, dto);
+      expect(venueService.update).toHaveBeenCalledWith('1', user, dto);
       expect(result).toEqual(updatedVenue);
     });
   });
 
   describe('delete', () => {
-    it('should call venueService.delete with id and userId', async () => {
+    it('should call venueService.delete with id and user', async () => {
       const venue = {
         id: '1',
         name: 'Maracanã',
@@ -165,9 +166,9 @@ describe('VenueController', () => {
 
       mockVenueService.delete.mockResolvedValue(venue);
 
-      const result = await controller.delete('1', userId);
+      const result = await controller.delete('1', user);
 
-      expect(venueService.delete).toHaveBeenCalledWith('1', userId);
+      expect(venueService.delete).toHaveBeenCalledWith('1', user);
       expect(result).toEqual(venue);
     });
   });
