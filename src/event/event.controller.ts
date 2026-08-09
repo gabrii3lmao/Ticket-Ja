@@ -43,7 +43,7 @@ export class EventController {
     @Body() data: CreateEventDto,
     @CurrentUser(ActiveUserPipe) user: UserPayload,
   ) {
-    return this.eventService.create(data, user.id);
+    return this.eventService.create(data, user);
   }
 
   @Public()
@@ -73,7 +73,7 @@ export class EventController {
     @Param('id') id: string,
     @CurrentUser(ActiveUserPipe) user: UserPayload,
   ) {
-    return this.eventService.delete(id, user.id);
+    return this.eventService.delete(id, user);
   }
 
   @Put(':id')
@@ -86,7 +86,7 @@ export class EventController {
     @Body() data: UpdateEventDto,
     @CurrentUser(ActiveUserPipe) user: UserPayload,
   ) {
-    return this.eventService.update(id, user.id, data);
+    return this.eventService.update(id, user, data);
   }
 
   @Patch(':id/status')
@@ -97,6 +97,6 @@ export class EventController {
     @Body() dto: UpdateEventStatusDto,
     @CurrentUser(ActiveUserPipe) user: UserPayload,
   ) {
-    return this.eventService.updateStatus(id, user.id, dto.status);
+    return this.eventService.updateStatus(id, user, dto.status);
   }
 }

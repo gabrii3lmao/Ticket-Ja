@@ -6,10 +6,11 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
-import { Event, EventStatus } from 'generated/prisma/client';
+import { Event, EventStatus, Role } from 'generated/prisma/client';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { QueryEventDto } from './dto/query-event.dto';
 import { assertEndDateAfterStartDate } from 'src/common/validators/event.validator';
+import type { UserPayload } from 'src/auth/decorators/current-user.decorator';
 
 @Injectable()
 export class EventService {
@@ -21,10 +22,12 @@ export class EventService {
   };
   constructor(private prisma: PrismaService) {}
 
-  async create(data: CreateEventDto, userId: string): Promise<Event> {
+  async create(data: CreateEventDto, user: UserPayload): Promise<Event> {
     assertEndDateAfterStartDate(data.startDate, data.endDate);
-    await this.validateVenueOwnership(data.venueId, userId);
-    const organizer = await this.getOrganizer(userId);
+    const organizer = await this.getOrganizer(user.id);
+
+    await this.validateVenueOwnership(data.venueId, user);
+
     return this.prisma.event.create({
       data: { ...data, organizerProfileId: organizer.id },
     });
@@ -91,25 +94,22 @@ export class EventService {
 
   async update(
     id: string,
-    userId: string,
+    user: UserPayload,
     data: UpdateEventDto,
   ): Promise<Event> {
-    const organizer = await this.getOrganizer(userId);
-    const eventExist = await this.getOwnedEvent(id, organizer.id);
+    const eventExist = await this.getOwnedEvent(id, user);
 
     const startDate = data.startDate ?? eventExist.startDate;
 
     assertEndDateAfterStartDate(startDate, data.endDate);
 
-    if (data.venueId)
-      await this.validateVenueOwnership(data.venueId, organizer.id);
+    if (data.venueId) await this.validateVenueOwnership(data.venueId, user);
 
     return this.prisma.event.update({ where: { id }, data: { ...data } });
   }
 
-  async delete(id: string, userId: string): Promise<Event> {
-    const organizer = await this.getOrganizer(userId);
-    const eventExist = await this.getOwnedEvent(id, organizer.id);
+  async delete(id: string, user: UserPayload): Promise<Event> {
+    const eventExist = await this.getOwnedEvent(id, user);
     const categoryCount = await this.prisma.category.count({
       where: { eventId: eventExist.id },
     });
@@ -122,9 +122,8 @@ export class EventService {
     return this.prisma.event.delete({ where: { id } });
   }
 
-  async updateStatus(id: string, userId: string, status: EventStatus) {
-    const organizer = await this.getOrganizer(userId);
-    const event = await this.getOwnedEvent(id, organizer.id);
+  async updateStatus(id: string, user: UserPayload, status: EventStatus) {
+    const event = await this.getOwnedEvent(id, user);
     if (!this.ALLOWED_TRANSITIONS[event.status].includes(status)) {
       throw new BadRequestException(
         `Cannot transition event from ${event.status} to ${status}`,
@@ -145,23 +144,32 @@ export class EventService {
     return this.prisma.event.update({ where: { id }, data: { status } });
   }
 
-  private async getOwnedEvent(id: string, organizerId: string) {
-    const event = await this.prisma.event.findUnique({ where: { id } });
+  private async getOwnedEvent(id: string, user: UserPayload) {
+    const event = await this.prisma.event.findUnique({
+      where: { id },
+      include: { organizerProfile: true },
+    });
 
-    if (!event || event.organizerProfileId !== organizerId) {
-      throw new NotFoundException('Event not found or not yours');
+    if (!event) {
+      throw new NotFoundException('Event not found');
     }
+
+    if (user.role !== Role.ADMIN && event.organizerProfile.userId !== user.id) {
+      throw new ForbiddenException('Event not found or not yours');
+    }
+
     return event;
   }
 
-  private async validateVenueOwnership(venueId: string, organizerId: string) {
+  private async validateVenueOwnership(venueId: string, user: UserPayload) {
     const venue = await this.prisma.venue.findUnique({
       where: { id: venueId },
+      include: { organizerProfile: true },
     });
 
     if (!venue) throw new NotFoundException('Venue not found');
 
-    if (venue.organizerProfileId !== organizerId) {
+    if (user.role !== Role.ADMIN && venue.organizerProfile.userId !== user.id) {
       throw new ForbiddenException('Venue not found or not yours');
     }
 

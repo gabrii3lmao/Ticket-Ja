@@ -9,22 +9,15 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { PrismaService } from 'src/prisma.service';
 import { QueryCategoryDto } from './dto/query-category.dto';
 import { assertSalesWindow } from 'src/common/validators/event.validator';
+import { UserPayload } from 'src/auth/decorators/current-user.decorator';
+import { Role } from 'generated/prisma/enums';
 
 @Injectable()
 export class CategoryService {
   constructor(private prisma: PrismaService) {}
 
-  async create(data: CreateCategoryDto, eventId: string, userId: string) {
-    const organizer = await this.getOrganizer(userId);
-    const event = await this.prisma.event.findUnique({
-      where: { id: eventId },
-      include: { venue: true },
-    });
-
-    if (!event || event.organizerProfileId !== organizer.id) {
-      throw new ForbiddenException('Event not found or not yours');
-    }
-
+  async create(data: CreateCategoryDto, eventId: string, user: UserPayload) {
+    const event = await this.getOwnedEvent(eventId, user);
     // Category stock cannot exceed venue capacity
     const stockTotal = await this.prisma.category.aggregate({
       where: { eventId },
@@ -114,8 +107,7 @@ export class CategoryService {
     return category;
   }
 
-  async update(id: string, userId: string, data: UpdateCategoryDto) {
-    const organizer = await this.getOrganizer(userId);
+  async update(id: string, user: UserPayload, data: UpdateCategoryDto) {
     const categoryExist = await this.prisma.category.findUnique({
       where: { id },
     });
@@ -124,16 +116,7 @@ export class CategoryService {
       throw new NotFoundException('Category with this ID not found');
     }
 
-    const event = await this.prisma.event.findUnique({
-      where: { id: categoryExist?.eventId },
-      include: { venue: true },
-    });
-
-    if (!event || event.organizerProfileId !== organizer.id) {
-      throw new ForbiddenException(
-        'Category in this event not found or not yours',
-      );
-    }
+    const event = await this.getOwnedEvent(categoryExist.eventId, user);
 
     // Date validation
     assertSalesWindow(data.salesStart, data.salesEnd, event.startDate);
@@ -167,8 +150,7 @@ export class CategoryService {
     });
   }
 
-  async remove(id: string, userId: string) {
-    const organizer = await this.getOrganizer(userId);
+  async remove(id: string, user: UserPayload) {
     const categoryExist = await this.prisma.category.findUnique({
       where: { id },
     });
@@ -177,15 +159,7 @@ export class CategoryService {
       throw new NotFoundException('Category with this ID not found');
     }
 
-    const event = await this.prisma.event.findUnique({
-      where: { id: categoryExist?.eventId },
-    });
-
-    if (!event || event.organizerProfileId !== organizer.id) {
-      throw new ForbiddenException(
-        'Category in this event not found or not yours',
-      );
-    }
+    await this.getOwnedEvent(categoryExist.eventId, user);
 
     const orderCount = await this.prisma.orderItem.count({
       where: { categoryId: id },
@@ -200,15 +174,20 @@ export class CategoryService {
     return this.prisma.category.delete({ where: { id } });
   }
 
-  private async getOrganizer(userId: string) {
-    const organizer = await this.prisma.organizerProfile.findUnique({
-      where: { userId },
+  private async getOwnedEvent(eventId: string, user: UserPayload) {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+      include: { organizerProfile: true, venue: true },
     });
 
-    if (!organizer) {
-      throw new ForbiddenException('Insufficient permissions');
+    if (!event) {
+      throw new NotFoundException('Event not found');
     }
 
-    return organizer;
+    if (user.role !== Role.ADMIN && event.organizerProfile.userId !== user.id) {
+      throw new ForbiddenException('Event not found or not yours');
+    }
+
+    return event;
   }
 }

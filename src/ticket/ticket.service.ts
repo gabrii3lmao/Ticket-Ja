@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
 import { QueryTicketDto } from './dto/query-ticket.dto';
+import type { UserPayload } from 'src/auth/decorators/current-user.decorator';
+import { Role } from 'generated/prisma/enums';
 
 @Injectable()
 export class TicketService {
@@ -63,7 +65,7 @@ export class TicketService {
     };
   }
 
-  async findOne(id: string, userId: string) {
+  async findOne(id: string, user: UserPayload) {
     const ticket = await this.prisma.ticket.findUnique({
       where: { id },
       include: {
@@ -76,7 +78,7 @@ export class TicketService {
       throw new NotFoundException('Ticket not found');
     }
 
-    if (ticket.userId !== userId) {
+    if (user.role !== Role.ADMIN && ticket.userId !== user.id) {
       throw new ForbiddenException('Ticket not found or not yours');
     }
 
@@ -108,14 +110,14 @@ export class TicketService {
     };
   }
 
-  async markAsUsed(id: string, userId: string) {
+  async markAsUsed(id: string, user: UserPayload) {
     const ticket = await this.prisma.ticket.findUnique({ where: { id } });
 
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
     }
 
-    if (ticket.userId !== userId) {
+    if (user.role !== Role.ADMIN && ticket.userId !== user.id) {
       throw new ForbiddenException('Ticket not found or not yours');
     }
 

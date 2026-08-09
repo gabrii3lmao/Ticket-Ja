@@ -57,7 +57,7 @@ export class TicketController {
     @Param('id') id: string,
     @CurrentUser(ActiveUserPipe) user: UserPayload,
   ) {
-    return this.ticketService.findOne(id, user.id);
+    return this.ticketService.findOne(id, user);
   }
 
   @Patch(':id/use')
@@ -73,6 +73,6 @@ export class TicketController {
     @Param('id') id: string,
     @CurrentUser(ActiveUserPipe) user: UserPayload,
   ) {
-    return this.ticketService.markAsUsed(id, user.id);
+    return this.ticketService.markAsUsed(id, user);
   }
 }

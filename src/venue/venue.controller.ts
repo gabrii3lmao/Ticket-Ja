@@ -70,7 +70,7 @@ export class VenueController {
     @Body() data: UpdateVenueDto,
     @CurrentUser(ActiveUserPipe) user: UserPayload,
   ) {
-    return this.venueService.update(id, user.id, data);
+    return this.venueService.update(id, user, data);
   }
 
   @Delete(':id')
@@ -83,6 +83,6 @@ export class VenueController {
     @Param('id') id: string,
     @CurrentUser(ActiveUserPipe) user: UserPayload,
   ) {
-    return this.venueService.delete(id, user.id);
+    return this.venueService.delete(id, user);
   }
 }

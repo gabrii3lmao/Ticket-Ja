@@ -5,10 +5,11 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
-import { Venue } from 'generated/prisma/client';
+import { Role, Venue } from 'generated/prisma/client';
 import { CreateVenueDto } from './dto/create-venue.dto';
 import { UpdateVenueDto } from './dto/update-venue.dto';
 import { QueryVenueDto } from './dto/query-venue.dto';
+import { UserPayload } from 'src/auth/decorators/current-user.decorator';
 
 @Injectable()
 export class VenueService {
@@ -76,14 +77,10 @@ export class VenueService {
 
   async update(
     id: string,
-    userId: string,
+    user: UserPayload,
     data: UpdateVenueDto,
   ): Promise<Venue> {
-    const organizer = await this.getOrganizer(userId);
-    const venue = await this.prisma.venue.findUnique({ where: { id } });
-    if (!venue || venue.organizerProfileId !== organizer.id) {
-      throw new ForbiddenException('Venue not found or not yours');
-    }
+    await this.getOwnedVenue(id, user);
 
     // validate Venue capacity
     if (data.capacity !== undefined) {
@@ -108,12 +105,8 @@ export class VenueService {
     return this.prisma.venue.update({ where: { id }, data });
   }
 
-  async delete(id: string, userId: string): Promise<Venue> {
-    const organizer = await this.getOrganizer(userId);
-    const venue = await this.prisma.venue.findUnique({ where: { id } });
-    if (!venue || venue.organizerProfileId !== organizer.id) {
-      throw new ForbiddenException('Venue not found or not yours');
-    }
+  async delete(id: string, user: UserPayload): Promise<Venue> {
+    await this.getOwnedVenue(id, user);
 
     const eventCount = await this.prisma.event.count({
       where: { venueId: id },
@@ -124,6 +117,23 @@ export class VenueService {
       );
     }
     return this.prisma.venue.delete({ where: { id } });
+  }
+
+  private async getOwnedVenue(id: string, user: UserPayload) {
+    const venue = await this.prisma.venue.findUnique({
+      where: { id },
+      include: { organizerProfile: true },
+    });
+
+    if (!venue) {
+      throw new NotFoundException('Venue not found');
+    }
+
+    if (user.role !== Role.ADMIN && venue.organizerProfile.userId !== user.id) {
+      throw new ForbiddenException('Venue not found or not yours');
+    }
+
+    return venue;
   }
 
   private async getOrganizer(userId: string) {

@@ -41,7 +41,7 @@ export class CategoryController {
     @Body() createCategoryDto: CreateCategoryDto,
     @CurrentUser(ActiveUserPipe) user: UserPayload,
   ) {
-    return this.categoryService.create(createCategoryDto, eventId, user.id);
+    return this.categoryService.create(createCategoryDto, eventId, user);
   }
 
   @Public()
@@ -74,7 +74,7 @@ export class CategoryController {
     @Body() updateCategoryDto: UpdateCategoryDto,
     @CurrentUser(ActiveUserPipe) user: UserPayload,
   ) {
-    return this.categoryService.update(id, user.id, updateCategoryDto);
+    return this.categoryService.update(id, user, updateCategoryDto);
   }
 
   @Delete(':id')
@@ -87,6 +87,6 @@ export class CategoryController {
     @Param('id') id: string,
     @CurrentUser(ActiveUserPipe) user: UserPayload,
   ) {
-    return this.categoryService.remove(id, user.id);
+    return this.categoryService.remove(id, user);
   }
 }
