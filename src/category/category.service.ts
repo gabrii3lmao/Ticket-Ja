@@ -15,12 +15,13 @@ export class CategoryService {
   constructor(private prisma: PrismaService) {}
 
   async create(data: CreateCategoryDto, eventId: string, userId: string) {
+    const organizer = await this.getOrganizer(userId);
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
       include: { venue: true },
     });
 
-    if (!event || event.organizerProfileId !== userId) {
+    if (!event || event.organizerProfileId !== organizer.id) {
       throw new ForbiddenException('Event not found or not yours');
     }
 
@@ -114,6 +115,7 @@ export class CategoryService {
   }
 
   async update(id: string, userId: string, data: UpdateCategoryDto) {
+    const organizer = await this.getOrganizer(userId);
     const categoryExist = await this.prisma.category.findUnique({
       where: { id },
     });
@@ -127,7 +129,7 @@ export class CategoryService {
       include: { venue: true },
     });
 
-    if (!event || event.organizerProfileId !== userId) {
+    if (!event || event.organizerProfileId !== organizer.id) {
       throw new ForbiddenException(
         'Category in this event not found or not yours',
       );
@@ -166,6 +168,7 @@ export class CategoryService {
   }
 
   async remove(id: string, userId: string) {
+    const organizer = await this.getOrganizer(userId);
     const categoryExist = await this.prisma.category.findUnique({
       where: { id },
     });
@@ -178,7 +181,7 @@ export class CategoryService {
       where: { id: categoryExist?.eventId },
     });
 
-    if (!event || event.organizerProfileId !== userId) {
+    if (!event || event.organizerProfileId !== organizer.id) {
       throw new ForbiddenException(
         'Category in this event not found or not yours',
       );
@@ -195,5 +198,17 @@ export class CategoryService {
     }
 
     return this.prisma.category.delete({ where: { id } });
+  }
+
+  private async getOrganizer(userId: string) {
+    const organizer = await this.prisma.organizerProfile.findUnique({
+      where: { userId },
+    });
+
+    if (!organizer) {
+      throw new ForbiddenException('Insufficient permissions');
+    }
+
+    return organizer;
   }
 }

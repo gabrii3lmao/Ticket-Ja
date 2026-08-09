@@ -15,8 +15,9 @@ export class VenueService {
   constructor(private prisma: PrismaService) {}
 
   async create(data: CreateVenueDto, userId: string): Promise<Venue> {
+    const organizer = await this.getOrganizer(userId);
     return this.prisma.venue.create({
-      data: { ...data, organizerProfileId: userId },
+      data: { ...data, organizerProfileId: organizer.id },
     });
   }
 
@@ -78,8 +79,9 @@ export class VenueService {
     userId: string,
     data: UpdateVenueDto,
   ): Promise<Venue> {
+    const organizer = await this.getOrganizer(userId);
     const venue = await this.prisma.venue.findUnique({ where: { id } });
-    if (!venue || venue.organizerProfileId !== userId) {
+    if (!venue || venue.organizerProfileId !== organizer.id) {
       throw new ForbiddenException('Venue not found or not yours');
     }
 
@@ -107,8 +109,9 @@ export class VenueService {
   }
 
   async delete(id: string, userId: string): Promise<Venue> {
+    const organizer = await this.getOrganizer(userId);
     const venue = await this.prisma.venue.findUnique({ where: { id } });
-    if (!venue || venue.organizerProfileId !== userId) {
+    if (!venue || venue.organizerProfileId !== organizer.id) {
       throw new ForbiddenException('Venue not found or not yours');
     }
 
@@ -121,5 +124,17 @@ export class VenueService {
       );
     }
     return this.prisma.venue.delete({ where: { id } });
+  }
+
+  private async getOrganizer(userId: string) {
+    const organizer = await this.prisma.organizerProfile.findUnique({
+      where: { userId },
+    });
+
+    if (!organizer) {
+      throw new ForbiddenException('Insufficient permissions');
+    }
+
+    return organizer;
   }
 }

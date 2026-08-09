@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
 import { User } from 'generated/prisma/client';
@@ -44,9 +45,16 @@ export class UserService {
 
   async deleteUser(id: string): Promise<User | undefined> {
     const existingUser = await this.prisma.user.findUnique({ where: { id } });
-
     if (!existingUser) {
       throw new NotFoundException('User with this ID not found');
+    }
+
+    const organizer = await this.prisma.organizerProfile.findUnique({
+      where: { userId: id },
+    });
+
+    if (!organizer) {
+      throw new ForbiddenException('Insufficient permissions');
     }
 
     const orderCount = await this.prisma.order.count({ where: { userId: id } });
@@ -57,8 +65,12 @@ export class UserService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      await tx.event.deleteMany({ where: { organizerProfileId: id } });
-      await tx.venue.deleteMany({ where: { organizerProfileId: id } });
+      await tx.event.deleteMany({
+        where: { organizerProfileId: organizer.id },
+      });
+      await tx.venue.deleteMany({
+        where: { organizerProfileId: organizer.id },
+      });
       return tx.user.delete({ where: { id } });
     });
   }

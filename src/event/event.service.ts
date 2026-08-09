@@ -24,9 +24,9 @@ export class EventService {
   async create(data: CreateEventDto, userId: string): Promise<Event> {
     assertEndDateAfterStartDate(data.startDate, data.endDate);
     await this.validateVenueOwnership(data.venueId, userId);
-
+    const organizer = await this.getOrganizer(userId);
     return this.prisma.event.create({
-      data: { ...data, organizerProfileId: userId },
+      data: { ...data, organizerProfileId: organizer.id },
     });
   }
 
@@ -94,19 +94,22 @@ export class EventService {
     userId: string,
     data: UpdateEventDto,
   ): Promise<Event> {
-    const eventExist = await this.getOwnedEvent(id, userId);
+    const organizer = await this.getOrganizer(userId);
+    const eventExist = await this.getOwnedEvent(id, organizer.id);
 
     const startDate = data.startDate ?? eventExist.startDate;
 
     assertEndDateAfterStartDate(startDate, data.endDate);
 
-    if (data.venueId) await this.validateVenueOwnership(data.venueId, userId);
+    if (data.venueId)
+      await this.validateVenueOwnership(data.venueId, organizer.id);
 
     return this.prisma.event.update({ where: { id }, data: { ...data } });
   }
 
   async delete(id: string, userId: string): Promise<Event> {
-    const eventExist = await this.getOwnedEvent(id, userId);
+    const organizer = await this.getOrganizer(userId);
+    const eventExist = await this.getOwnedEvent(id, organizer.id);
     const categoryCount = await this.prisma.category.count({
       where: { eventId: eventExist.id },
     });
@@ -120,7 +123,8 @@ export class EventService {
   }
 
   async updateStatus(id: string, userId: string, status: EventStatus) {
-    const event = await this.getOwnedEvent(id, userId);
+    const organizer = await this.getOrganizer(userId);
+    const event = await this.getOwnedEvent(id, organizer.id);
     if (!this.ALLOWED_TRANSITIONS[event.status].includes(status)) {
       throw new BadRequestException(
         `Cannot transition event from ${event.status} to ${status}`,
@@ -141,25 +145,38 @@ export class EventService {
     return this.prisma.event.update({ where: { id }, data: { status } });
   }
 
-  private async getOwnedEvent(id: string, userId: string) {
+  private async getOwnedEvent(id: string, organizerId: string) {
     const event = await this.prisma.event.findUnique({ where: { id } });
-    if (!event || event.organizerProfileId !== userId) {
+
+    if (!event || event.organizerProfileId !== organizerId) {
       throw new NotFoundException('Event not found or not yours');
     }
     return event;
   }
 
-  private async validateVenueOwnership(venueId: string, userId: string) {
+  private async validateVenueOwnership(venueId: string, organizerId: string) {
     const venue = await this.prisma.venue.findUnique({
       where: { id: venueId },
     });
 
     if (!venue) throw new NotFoundException('Venue not found');
 
-    if (venue.organizerProfileId !== userId) {
+    if (venue.organizerProfileId !== organizerId) {
       throw new ForbiddenException('Venue not found or not yours');
     }
 
     return venue;
+  }
+
+  private async getOrganizer(userId: string) {
+    const organizer = await this.prisma.organizerProfile.findUnique({
+      where: { userId },
+    });
+
+    if (!organizer) {
+      throw new ForbiddenException('Insufficient permissions');
+    }
+
+    return organizer;
   }
 }

@@ -11,6 +11,7 @@ import { PrismaModule } from './prisma.module';
 import { CategoryModule } from './category/category.module';
 import { OrderModule } from './order/order.module';
 import { TicketModule } from './ticket/ticket.module';
+import { RolesGuard } from './auth/guards/roles.guard';
 
 @Module({
   imports: [
@@ -26,6 +27,9 @@ import { TicketModule } from './ticket/ticket.module';
     TicketModule,
   ],
   controllers: [],
-  providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],
+  providers: [
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
+  ],
 })
 export class AppModule {}
