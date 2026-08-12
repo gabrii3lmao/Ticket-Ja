@@ -33,7 +33,7 @@ WORKDIR /app
 COPY package.json yarn.lock ./
 COPY prisma ./prisma/
 
-RUN yarn install --frozen-lockfile --production
+RUN yarn install --immutable
 RUN yarn prisma generate
 
 COPY --from=builder /app/dist ./dist

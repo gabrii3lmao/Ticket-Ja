@@ -32,7 +32,9 @@ services:
 
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://postgres:admin@123@db:5432/ticketmaster?schema=public
+
+    env_file:
+      - .env.production.local
 
 volumes:
   postgres_data:

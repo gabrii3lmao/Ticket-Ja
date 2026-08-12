@@ -5,9 +5,13 @@ import helmet from 'helmet';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { PrismaClientExceptionFilter } from './common/filters/prisma-exception.filter';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
   const app = (await NestFactory.create(AppModule)).setGlobalPrefix('api');
+  const configService = app.get(ConfigService);
+  const enviroment = configService.get<string>('NODE_ENV');
+
   const config = new DocumentBuilder()
     .setTitle('Ticket Já API')
     .setDescription(
@@ -16,8 +20,12 @@ async function bootstrap() {
     .setVersion('1.0')
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' })
     .build();
-  const documentFactory = () => SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('docs', app, documentFactory);
+
+  if (enviroment !== 'production') {
+    const documentFactory = () => SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('docs', app, documentFactory);
+  }
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
