@@ -12,6 +12,7 @@ import { CategoryModule } from './category/category.module';
 import { OrderModule } from './order/order.module';
 import { TicketModule } from './ticket/ticket.module';
 import { RolesGuard } from './auth/guards/roles.guard';
+import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     CategoryModule,
     OrderModule,
     TicketModule,
+    PaymentModule,
   ],
   controllers: [],
   providers: [
