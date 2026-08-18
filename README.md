@@ -10,6 +10,7 @@ RESTful API for event ticket sales built with **NestJS 11**, **Prisma 7** and **
 - **Auth:** JWT via passport-jwt (global guard with `@Public()` bypass)
 - **Validation:** class-validator + class-transformer (whitelist + transform enabled)
 - **API Docs:** Swagger/OpenAPI at `/api`
+- **Payments:** ASAAS (PIX) via Strategy pattern + Axios (`@nestjs/axios`), webhooks + expiry job (`@nestjs/schedule`)
 - **Testing:** Jest 30 (unit) + Supertest (e2e)
 - **Lint/Format:** ESLint 9 (flat config) + Prettier 3
 - **Container:** Docker multi-stage + Docker Compose
@@ -24,6 +25,7 @@ src/
 ├── event/       — Event CRUD with ownership, status lifecycle, pagination
 ├── category/    — Category CRUD with ownership check via parent event
 ├── order/       — Purchase flow with atomic transactions and stock control
+├── payment/     — Payment gateway abstraction (ASAAS/PIX), webhooks, expiry job
 ├── ticket/      — Ticket validation (QR code), usage tracking, listing
 ├── health/      — Health check endpoint (Prisma ping via @nestjs/terminus)
 └── common/      — Shared filters (HTTP exception, Prisma exception)
@@ -111,7 +113,15 @@ The seed creates:
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
-| `POST` | `/order` | Bearer | Create order (purchases tickets) |
+| `POST` | `/order` | Bearer | Create order (purchases tickets, returns `payment` PIX data) |
+
+### Payment
+
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| `POST` | `/payments/webhook/asaas` | Webhook token | ASAAS webhook (dedup + idempotent transitions) |
+
+> Full payment flow and gateway integration: see [docs/PAGAMENTOS.md](docs/PAGAMENTOS.md).
 
 ### Ticket
 
@@ -121,6 +131,21 @@ The seed creates:
 | `GET` | `/ticket/:id` | Bearer | Get ticket by ID |
 | `GET` | `/ticket/validate/:code` | Public | Validate ticket by QR code |
 | `PATCH` | `/ticket/:id/use` | Bearer | Mark ticket as used |
+
+## Payments (ASAAS / PIX)
+
+- Gateway calls run **outside** the order transaction — a gateway failure returns `502` and the expiry job frees the reserved stock.
+- `POST /order` creates the payment with 30-min PIX due date and returns `payment: { id, externalId, providerData, dueDate, status }`.
+- ASAAS webhook at `/api/payments/webhook/asaas` (auth via `ASAAS_WEBHOOK_TOKEN` in the `access_token` header) confirms payment, marks the order paid and releases tickets.
+- A `@nestjs/schedule` job (every 5 min) expires `PENDING` payments — cancels the order and restores stock.
+
+Required env vars:
+
+```bash
+ASAAS_API_KEY=        # ASAAS sandbox/prod API key
+ASAAS_BASE_URL=       # e.g. https://sandbox.asaas.com/api/v3
+ASAAS_WEBHOOK_TOKEN=  # secret used to authenticate incoming webhooks
+```
 
 ## Authentication
 

@@ -32,6 +32,24 @@ class PrismaClientKnownRequestError extends Error {
 jest.mock('generated/prisma/client', () => ({
   Prisma: { Decimal: mockDecimal },
   PrismaClient: class {},
+  PaymentProvider: {
+    ASAAS: 'ASAAS',
+    STRIPE: 'STRIPE',
+    MERCADO_PAGO: 'MERCADO_PAGO',
+    PAGSEGURO: 'PAGSEGURO',
+  },
+  PaymentMethod: {
+    PIX: 'PIX',
+    CREDIT_CARD: 'CREDIT_CARD',
+    DEBIT_CARD: 'DEBIT_CARD',
+    BOLETO: 'BOLETO',
+  },
+  PaymentStatus: {
+    PENDING: 'PENDING',
+    APPROVED: 'APPROVED',
+    FAILED: 'FAILED',
+    REFUNDED: 'REFUNDED',
+  },
 }));
 
 jest.mock('generated/prisma/internal/prismaNamespace', () => ({
@@ -40,9 +58,14 @@ jest.mock('generated/prisma/internal/prismaNamespace', () => ({
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { OrderService } from './order.service';
 import { PrismaService } from 'src/prisma.service';
+import { PaymentService } from 'src/payment/payment.service';
 
 const mockTx = {
   category: {
@@ -58,7 +81,18 @@ const mockTx = {
 };
 
 const mockPrisma = {
+  user: {
+    findUnique: jest.fn(),
+  },
+  payment: {
+    update: jest.fn(),
+  },
   $transaction: jest.fn(),
+};
+
+const paymentServiceMock = {
+  ensureGatewayCustomer: jest.fn(),
+  createPayment: jest.fn(),
 };
 
 const userId = 'user-uuid';
@@ -99,6 +133,7 @@ describe('OrderService', () => {
       providers: [
         OrderService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: PaymentService, useValue: paymentServiceMock },
       ],
     }).compile();
 
@@ -107,6 +142,28 @@ describe('OrderService', () => {
     mockPrisma.$transaction.mockImplementation(
       (cb: (tx: typeof mockTx) => Promise<unknown>) => cb(mockTx),
     );
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: userId,
+      name: 'John Doe',
+      email: 'john@email.com',
+      taxId: null,
+    });
+    mockPrisma.payment.update.mockResolvedValue({
+      id: 'pay-uuid',
+      externalId: 'pay_test',
+      providerData: { pixCopiaECola: '000201...' },
+      dueDate: new Date(),
+      status: 'PENDING',
+    });
+    paymentServiceMock.ensureGatewayCustomer.mockResolvedValue({
+      externalId: 'cus_test',
+    });
+    paymentServiceMock.createPayment.mockResolvedValue({
+      externalId: 'pay_test',
+      status: 'PENDING',
+      providerData: { pixCopiaECola: '000201...' },
+      dueDate: new Date(),
+    });
   });
 
   afterEach(() => {
@@ -126,7 +183,7 @@ describe('OrderService', () => {
         subtotal: 500,
         discount: 0,
         fee: 25,
-        total: 525,
+        total: new mockDecimal(525),
         orderItems: [
           {
             id: 'oi-uuid',
@@ -148,7 +205,7 @@ describe('OrderService', () => {
         payments: [],
       };
       mockTx.order.create.mockResolvedValue(fakeOrder);
-      mockTx.payment.create.mockResolvedValue({});
+      mockTx.payment.create.mockResolvedValue({ id: 'pay-uuid' });
 
       const result = await service.create(createDto, userId);
 
@@ -166,14 +223,19 @@ describe('OrderService', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             orderId: 'order-uuid',
-            amount: 525,
             provider: 'ASAAS',
             paymentMethod: 'PIX',
             status: 'PENDING',
           }),
         }),
       );
-      expect(result).toEqual(fakeOrder);
+      expect(result).toEqual({
+        ...fakeOrder,
+        payment: expect.objectContaining({
+          id: 'pay-uuid',
+          externalId: 'pay_test',
+        }),
+      });
     });
 
     it('should throw NotFoundException when category does not exist', async () => {
@@ -278,7 +340,7 @@ describe('OrderService', () => {
         subtotal: 750,
         discount: 0,
         fee: 37.5,
-        total: 787.5,
+        total: new mockDecimal(787.5),
         orderItems: [
           {
             id: 'oi-1',
@@ -300,7 +362,7 @@ describe('OrderService', () => {
         ],
       };
       mockTx.order.create.mockResolvedValue(fakeOrder);
-      mockTx.payment.create.mockResolvedValue({});
+      mockTx.payment.create.mockResolvedValue({ id: 'pay-uuid' });
 
       const multiDto = {
         items: [
@@ -316,7 +378,10 @@ describe('OrderService', () => {
         include: { event: true },
       });
       expect(mockTx.category.update).toHaveBeenCalledTimes(2);
-      expect(result).toEqual(fakeOrder);
+      expect(result).toEqual({
+        ...fakeOrder,
+        payment: expect.objectContaining({ externalId: 'pay_test' }),
+      });
     });
 
     it('should aggregate duplicate categoryIds into a single order item', async () => {
@@ -331,7 +396,7 @@ describe('OrderService', () => {
         subtotal: 750,
         discount: 0,
         fee: 37.5,
-        total: 787.5,
+        total: new mockDecimal(787.5),
         orderItems: [
           {
             id: 'oi-1',
@@ -347,7 +412,7 @@ describe('OrderService', () => {
         ],
       };
       mockTx.order.create.mockResolvedValue(fakeOrder);
-      mockTx.payment.create.mockResolvedValue({});
+      mockTx.payment.create.mockResolvedValue({ id: 'pay-uuid' });
 
       const dupDto = {
         items: [
@@ -392,7 +457,7 @@ describe('OrderService', () => {
           }),
         ),
       }));
-      mockTx.payment.create.mockResolvedValue({});
+      mockTx.payment.create.mockResolvedValue({ id: 'pay-uuid' });
 
       const result = (await service.create(createDto, userId)) as any;
       expect(result.orderItems[0].tickets).toHaveLength(2);
@@ -426,7 +491,7 @@ describe('OrderService', () => {
           ),
         };
       });
-      mockTx.payment.create.mockResolvedValue({});
+      mockTx.payment.create.mockResolvedValue({ id: 'pay-uuid' });
 
       await service.create(createDto, userId);
 
@@ -465,8 +530,11 @@ describe('OrderService', () => {
         ...baseCategory,
         quantity: 98,
       });
-      mockTx.order.create.mockResolvedValue({ id: 'order-uuid', total: 525 });
-      mockTx.payment.create.mockResolvedValue({});
+      mockTx.order.create.mockResolvedValue({
+        id: 'order-uuid',
+        total: new mockDecimal(525),
+      });
+      mockTx.payment.create.mockResolvedValue({ id: 'pay-uuid' });
 
       await expect(service.create(createDto, userId)).resolves.toBeDefined();
 
@@ -485,8 +553,11 @@ describe('OrderService', () => {
         ...baseCategory,
         quantity: 98,
       });
-      mockTx.order.create.mockResolvedValue({ id: 'order-uuid', total: 525 });
-      mockTx.payment.create.mockResolvedValue({});
+      mockTx.order.create.mockResolvedValue({
+        id: 'order-uuid',
+        total: new mockDecimal(525),
+      });
+      mockTx.payment.create.mockResolvedValue({ id: 'pay-uuid' });
 
       await expect(service.create(createDto, userId)).resolves.toBeDefined();
 
@@ -505,8 +576,11 @@ describe('OrderService', () => {
         ...baseCategory,
         quantity: 98,
       });
-      mockTx.order.create.mockResolvedValue({ id: 'order-uuid', total: 525 });
-      mockTx.payment.create.mockResolvedValue({});
+      mockTx.order.create.mockResolvedValue({
+        id: 'order-uuid',
+        total: new mockDecimal(525),
+      });
+      mockTx.payment.create.mockResolvedValue({ id: 'pay-uuid' });
 
       await expect(service.create(createDto, userId)).resolves.toBeDefined();
 
@@ -540,6 +614,92 @@ describe('OrderService', () => {
       expect(mockTx.category.update).toHaveBeenCalledTimes(2);
       expect(mockTx.order.create).not.toHaveBeenCalled();
       expect(mockTx.payment.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('create - payment gateway integration', () => {
+    it('should call the gateway and attach the payment with provider data', async () => {
+      mockTx.category.findMany.mockResolvedValue([baseCategory]);
+      mockTx.category.update.mockResolvedValue({
+        ...baseCategory,
+        quantity: 98,
+      });
+      mockTx.order.create.mockResolvedValue({
+        id: 'order-uuid',
+        subtotal: 500,
+        discount: 0,
+        fee: 25,
+        total: new mockDecimal(525),
+        orderItems: [],
+      });
+      mockTx.payment.create.mockResolvedValue({ id: 'pay-uuid' });
+
+      const result = (await service.create(createDto, userId)) as {
+        payment: { externalId: string | null };
+      };
+
+      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: userId },
+      });
+      expect(paymentServiceMock.ensureGatewayCustomer).toHaveBeenCalledWith(
+        userId,
+        {
+          name: 'John Doe',
+          email: 'john@email.com',
+          taxId: undefined,
+        },
+      );
+      expect(paymentServiceMock.createPayment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customerExternalId: 'cus_test',
+          amount: 525,
+          method: 'PIX',
+        }),
+      );
+      expect(mockPrisma.payment.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'pay-uuid' },
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          data: expect.objectContaining({
+            externalId: 'pay_test',
+            status: 'PENDING',
+          }),
+        }),
+      );
+      expect(result.payment.externalId).toBe('pay_test');
+    });
+
+    it('should throw NotFoundException when the user does not exist', async () => {
+      mockTx.category.findMany.mockResolvedValue([baseCategory]);
+      mockTx.category.update.mockResolvedValue({
+        ...baseCategory,
+        quantity: 98,
+      });
+      mockTx.order.create.mockResolvedValue({ id: 'order-uuid' });
+      mockTx.payment.create.mockResolvedValue({ id: 'pay-uuid' });
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.create(createDto, userId)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(paymentServiceMock.ensureGatewayCustomer).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadGatewayException when the gateway fails', async () => {
+      mockTx.category.findMany.mockResolvedValue([baseCategory]);
+      mockTx.category.update.mockResolvedValue({
+        ...baseCategory,
+        quantity: 98,
+      });
+      mockTx.order.create.mockResolvedValue({ id: 'order-uuid' });
+      mockTx.payment.create.mockResolvedValue({ id: 'pay-uuid' });
+      paymentServiceMock.ensureGatewayCustomer.mockRejectedValue(
+        new Error('gateway down'),
+      );
+
+      await expect(service.create(createDto, userId)).rejects.toThrow(
+        BadGatewayException,
+      );
     });
   });
 });

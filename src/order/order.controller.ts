@@ -21,13 +21,22 @@ export class OrderController {
   @Post()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Purchase tickets' })
-  @ApiResponse({ status: 201, description: 'Order created successfully' })
+  @ApiResponse({
+    status: 201,
+    description:
+      'Order created successfully. Returns the order plus `payment` with ASAAS PIX data (externalId, providerData, dueDate)',
+  })
   @ApiResponse({
     status: 400,
     description: 'Bad request or insufficient stock',
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'User or category not found' })
+  @ApiResponse({
+    status: 502,
+    description:
+      'Payment gateway unavailable — order stays pending, stock released by the expiry job',
+  })
   create(
     @Body() dto: CreateOrderDto,
     @CurrentUser(ActiveUserPipe) user: UserPayload,

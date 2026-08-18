@@ -13,10 +13,12 @@ import { OrderModule } from './order/order.module';
 import { TicketModule } from './ticket/ticket.module';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { PaymentModule } from './payment/payment.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     UserModule,
     EventModule,

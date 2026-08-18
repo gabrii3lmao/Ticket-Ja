@@ -4,6 +4,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from './../src/prisma.service';
+import { PaymentService } from './../src/payment/payment.service';
 
 describe('Ticket (e2e)', () => {
   let app: INestApplication<App>;
@@ -22,7 +23,23 @@ describe('Ticket (e2e)', () => {
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(PaymentService)
+      .useValue({
+        // eslint-disable-next-line @typescript-eslint/require-await
+        ensureGatewayCustomer: async () => ({ externalId: 'cus_test' }),
+        // eslint-disable-next-line @typescript-eslint/require-await
+        createPayment: async () => ({
+          externalId: 'pay_test',
+          status: 'PENDING',
+          providerData: {
+            pixCopiaECola: '00020101021226890014br.gov.bcb.pix',
+            pixQrCode: 'data:image/png;base64,iVBORw0KGgo=',
+          },
+          dueDate: new Date(),
+        }),
+      })
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(
@@ -148,6 +165,10 @@ describe('Ticket (e2e)', () => {
         ticketId = res.body.orderItems[0].tickets[0].id;
         ticketCode = res.body.orderItems[0].tickets[0].code;
         expect(ticketCode).toMatch(/^TKT-/);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        expect(res.body.payment.externalId).toBe('pay_test');
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        expect(res.body.payment.providerData.pixCopiaECola).toBeDefined();
       });
   });
 

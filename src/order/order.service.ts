@@ -2,23 +2,35 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  BadGatewayException,
 } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { PrismaService } from 'src/prisma.service';
-import { Category, Prisma } from 'generated/prisma/client';
+import {
+  Category,
+  PaymentMethod,
+  PaymentProvider,
+  PaymentStatus,
+  Prisma,
+} from 'generated/prisma/client';
 import {
   Decimal,
   PrismaClientKnownRequestError,
 } from 'generated/prisma/internal/prismaNamespace';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { PaymentService } from 'src/payment/payment.service';
 
 @Injectable()
 export class OrderService {
   private readonly FEE_RATE = new Decimal('0.05');
-  constructor(private prisma: PrismaService) {}
+  private readonly PIX_EXPIRATION_MS = 30 * 60 * 1000; // 30 min
+  constructor(
+    private prisma: PrismaService,
+    private paymentService: PaymentService,
+  ) {}
 
   async create(createOrderDto: CreateOrderDto, userId: string) {
-    return this.prisma.$transaction(async (tx) => {
+    const { order, payment } = await this.prisma.$transaction(async (tx) => {
       // Phase 1: validate and reserve stock
       const itemsData = await this.reserveAndValidateStock(
         tx,
@@ -35,18 +47,51 @@ export class OrderService {
         total,
       });
 
-      await tx.payment.create({
+      const payment = await tx.payment.create({
         data: {
           orderId: order.id,
           amount: order.total,
-          provider: 'ASAAS',
-          paymentMethod: 'PIX',
-          status: 'PENDING',
+          provider: PaymentProvider.ASAAS,
+          paymentMethod: PaymentMethod.PIX,
+          status: PaymentStatus.PENDING,
         },
       });
 
-      return order;
+      return { order, payment };
     });
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    try {
+      const { externalId: customerExternalId } =
+        await this.paymentService.ensureGatewayCustomer(userId, {
+          name: user.name,
+          email: user.email,
+          taxId: user.taxId ?? undefined,
+        });
+
+      const charge = await this.paymentService.createPayment({
+        customerExternalId,
+        amount: order.total.toNumber(),
+        method: PaymentMethod.PIX,
+        dueDate: this.pixDueDate(),
+      }); // now + 30min}
+
+      const updatedPayment = await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          externalId: charge.externalId,
+          providerData: charge.providerData as Prisma.InputJsonValue,
+          dueDate: charge.dueDate,
+          status: charge.status,
+        },
+      });
+      return { ...order, payment: updatedPayment };
+    } catch (error) {
+      throw new BadGatewayException('Payment gateway unavailable');
+    }
   }
 
   private async reserveAndValidateStock(
@@ -204,5 +249,10 @@ export class OrderService {
         },
       },
     });
+  }
+
+  private pixDueDate() {
+    const now = new Date();
+    return new Date(now.getTime() + this.PIX_EXPIRATION_MS);
   }
 }
