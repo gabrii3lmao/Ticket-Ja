@@ -1,5 +1,29 @@
-import { IsEmail, IsNotEmpty, IsString, Length } from 'class-validator';
+import 'reflect-metadata';
+import {
+  IsEmail,
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Length,
+  ValidateNested,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsCPFOrCNPJ } from 'src/common/validators/document.validator';
+
+export class OrganizerDto {
+  @IsNotEmpty()
+  @IsString()
+  legalName: string;
+
+  @IsOptional()
+  @IsString()
+  tradeName?: string;
+
+  @IsCPFOrCNPJ()
+  document: string;
+}
 
 export class RegisterDto {
   @ApiProperty({ description: 'Full name', example: 'John Doe' })
@@ -19,4 +43,14 @@ export class RegisterDto {
   @IsNotEmpty()
   @Length(6)
   password: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['BUYER', 'ORGANIZER'])
+  role?: 'BUYER' | 'ORGANIZER' = 'BUYER';
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => OrganizerDto)
+  organizer?: OrganizerDto;
 }

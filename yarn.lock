@@ -4304,6 +4304,33 @@ __metadata:
   languageName: node
   linkType: hard
 
+"cpf-cnpj-validator@npm:^2.1.2":
+  version: 2.1.2
+  resolution: "cpf-cnpj-validator@npm:2.1.2"
+  peerDependencies:
+    "@angular/forms": ">=15"
+    class-validator: ^0.14.0 || ^0.15.0
+    joi: ^17.0.0
+    reflect-metadata: ^0.2.0
+    yup: ^1.0.0
+    zod: ^3.22.0 || ^4.0.0
+  peerDependenciesMeta:
+    "@angular/forms":
+      optional: true
+    class-validator:
+      optional: true
+    joi:
+      optional: true
+    reflect-metadata:
+      optional: true
+    yup:
+      optional: true
+    zod:
+      optional: true
+  checksum: 10c0/f1f106f98d8242c540f50f74ff0f481ae3939d5f65d85387da969c58751eec6a9d96a01c10616e3a81fad8dbdcad3cf5b224cb2eabd55050eedcc8424c909009
+  languageName: node
+  linkType: hard
+
 "create-require@npm:^1.1.0":
   version: 1.1.1
   resolution: "create-require@npm:1.1.1"
@@ -8505,6 +8532,7 @@ __metadata:
     bcrypt: "npm:^6.0.0"
     class-transformer: "npm:^0.5.1"
     class-validator: "npm:^0.15.1"
+    cpf-cnpj-validator: "npm:^2.1.2"
     eslint: "npm:^9.18.0"
     eslint-config-prettier: "npm:^10.0.1"
     eslint-plugin-prettier: "npm:^5.2.2"

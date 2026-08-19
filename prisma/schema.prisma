@@ -19,10 +19,11 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  orders            Order[]
-  tickets           Ticket[]
-  organizerProfiles OrganizerProfile?
-  gatewayCustomers  GatewayCustomer[]
+  orders              Order[]
+  tickets             Ticket[]
+  organizerProfiles   OrganizerProfile?
+  gatewayCustomers    GatewayCustomer[]
+  organizerAplication OrganizerAplication?
 }
 
 model OrganizerProfile {
@@ -40,6 +41,22 @@ model OrganizerProfile {
   venues          Venue[]
   events          Event[]
   paymentAccounts PaymentAccount[]
+}
+
+model OrganizerAplication {
+  id             String                     @id @default(uuid())
+  legalName      String
+  tradeName      String?
+  document       String                     @unique @db.VarChar(14)
+  status         OrganizerApplicationStatus @default(PENDING)
+  rejectedReason String?                    @db.Text
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([status])
 }
 
 model Venue {
@@ -301,4 +318,10 @@ enum Role {
   BUYER
   ORGANIZER
   ADMIN
+}
+
+enum OrganizerApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

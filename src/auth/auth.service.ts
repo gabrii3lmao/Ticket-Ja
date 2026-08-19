@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from 'src/user/user.service';
 import * as bcrypt from 'bcrypt';
@@ -31,11 +31,22 @@ export class AuthService {
   }
 
   async register(data: RegisterDto) {
+    this.validateUserRole(data);
     const user = await this.userService.create(data);
     return this.login(user);
   }
 
   async delete(userId: string) {
     return this.userService.deleteUser(userId);
+  }
+
+  private validateUserRole(data: RegisterDto) {
+    if (data.role === 'ORGANIZER' && !data.organizer) {
+      throw new BadRequestException('Must have organizer data');
+    }
+
+    if (data.role === 'BUYER' && data.organizer) {
+      throw new BadRequestException('Cannot be a organizer');
+    }
   }
 }
