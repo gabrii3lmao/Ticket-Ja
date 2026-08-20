@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
-import { Role, Venue } from 'generated/prisma/client';
+import { Prisma, Role, Venue } from 'generated/prisma/client';
 import { CreateVenueDto } from './dto/create-venue.dto';
 import { UpdateVenueDto } from './dto/update-venue.dto';
 import { QueryVenueDto } from './dto/query-venue.dto';
@@ -41,10 +41,10 @@ export class VenueService {
       ...(maxCapacity && { lte: Number(maxCapacity) }),
     };
 
-    const where = {
-      ...(name && { name: { contains: name, mode: 'insensitive' as const } }),
-      ...(city && { city: { contains: city, mode: 'insensitive' as const } }),
-      ...(state && { state }),
+    const where: Prisma.VenueWhereInput = {
+      name: name ? { contains: name, mode: 'insensitive' } : undefined,
+      city: city ? { contains: city, mode: 'insensitive' } : undefined,
+      state: state || undefined,
       ...(Object.keys(capacityFilter).length && { capacity: capacityFilter }),
     };
 

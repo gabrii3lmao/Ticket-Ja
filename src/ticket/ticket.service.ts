@@ -8,6 +8,7 @@ import { PrismaService } from 'src/prisma.service';
 import { QueryTicketDto } from './dto/query-ticket.dto';
 import type { UserPayload } from 'src/auth/decorators/current-user.decorator';
 import { Role } from 'generated/prisma/enums';
+import { Prisma } from 'generated/prisma/client';
 
 @Injectable()
 export class TicketService {
@@ -28,12 +29,12 @@ export class TicketService {
     const skip = (page - 1) * limit;
     const orderBy = { [sortBy]: sortOrder };
 
-    const where = {
-      ...(status && { status }),
-      ...(eventId && { eventId }),
-      ...(userId && { userId }),
-      ...(code && { code }),
-      ...(orderId && { orderItem: { orderId } }),
+    const where: Prisma.TicketWhereInput = {
+      status: status || undefined,
+      eventId: eventId || undefined,
+      userId: userId || undefined,
+      code: code || undefined,
+      orderItem: orderId ? { orderId } : undefined,
     };
 
     const [tickets, total] = await this.prisma.$transaction([

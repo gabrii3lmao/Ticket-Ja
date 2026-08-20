@@ -11,6 +11,7 @@ import { QueryCategoryDto } from './dto/query-category.dto';
 import { assertSalesWindow } from 'src/common/validators/event.validator';
 import { UserPayload } from 'src/auth/decorators/current-user.decorator';
 import { Role } from 'generated/prisma/enums';
+import { Prisma } from 'generated/prisma/client';
 
 @Injectable()
 export class CategoryService {
@@ -57,24 +58,22 @@ export class CategoryService {
       sortOrder = 'desc',
     } = query;
     const skip = (page - 1) * limit;
-
-    const priceFilter = {
-      ...(minPrice && { gte: minPrice }),
-      ...(maxPrice && { lte: maxPrice }),
-    };
-
-    const where = {
+    
+    const where: Prisma.CategoryWhereInput = {
       eventId,
-      ...(name && {
-        name: { contains: name, mode: 'insensitive' as const },
-      }),
-      ...(Object.keys(priceFilter).length && { price: priceFilter }),
-      ...(salesStartDate && {
-        salesStart: { gte: new Date(salesStartDate) },
-      }),
-      ...(salesEndDate && {
-        salesEnd: { lte: new Date(salesEndDate) },
-      }),
+      name: name ? { contains: name, mode: 'insensitive' } : undefined,
+      price:
+        minPrice !== undefined || maxPrice !== undefined
+          ? {
+              gte: minPrice,
+              lte: maxPrice,
+            }
+          : undefined,
+
+      salesStart: salesStartDate
+        ? { gte: new Date(salesStartDate) }
+        : undefined,
+      salesEnd: salesEndDate ? { lte: new Date(salesEndDate) } : undefined,
     };
 
     const orderBy = { [sortBy]: sortOrder };

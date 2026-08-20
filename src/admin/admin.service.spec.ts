@@ -86,7 +86,7 @@ describe('AdminService', () => {
       });
       expect(result).toEqual({
         data: apps,
-        meta: { total: 12, page: 2, limit: 5, totalPage: 3 },
+        meta: { total: 12, page: 2, limit: 5, totalPages: 3 },
       });
     });
 

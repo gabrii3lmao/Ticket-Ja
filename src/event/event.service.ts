@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
-import { Event, EventStatus, Role } from 'generated/prisma/client';
+import { Event, EventStatus, Prisma, Role } from 'generated/prisma/client';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { QueryEventDto } from './dto/query-event.dto';
 import { assertEndDateAfterStartDate } from 'src/common/validators/event.validator';
@@ -62,17 +62,17 @@ export class EventService {
 
     const orderBy = { [sortBy]: sortOrder };
 
-    const venueFilter = {
-      ...(city && { city: { contains: city, mode: 'insensitive' as const } }),
-      ...(state && { state }),
+    const venueFilter: Prisma.VenueWhereInput = {
+      city: city ? { contains: city, mode: 'insensitive' } : undefined,
+      state: state || undefined,
     };
 
-    const where = {
+    const where: Prisma.EventWhereInput = {
       status: EventStatus.PUBLISHED,
-      ...(name && { name: { contains: name, mode: 'insensitive' as const } }),
-      ...(Object.keys(venueFilter).length && { venue: venueFilter }),
-      ...(startDate && { startDate: { gte: new Date(startDate) } }),
-      ...(endDate && { endDate: { lte: new Date(endDate) } }),
+      name: name ? { contains: name, mode: 'insensitive' } : undefined,
+      venue: city || state ? venueFilter : undefined,
+      startDate: startDate ? { gte: new Date(startDate) } : undefined,
+      endDate: endDate ? { lte: new Date(endDate) } : undefined,
     };
 
     const [events, total] = await this.prisma.$transaction([
