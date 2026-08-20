@@ -14,6 +14,7 @@ import { TicketModule } from './ticket/ticket.module';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { PaymentModule } from './payment/payment.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     OrderModule,
     TicketModule,
     PaymentModule,
+    AdminModule,
   ],
   controllers: [],
   providers: [

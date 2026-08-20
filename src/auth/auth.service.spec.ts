@@ -7,6 +7,7 @@ jest.mock('bcrypt', () => ({
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UserService } from 'src/user/user.service';
 import { JwtService } from '@nestjs/jwt';
@@ -131,13 +132,68 @@ describe('AuthService', () => {
 
       const result = await service.register(dto);
 
-      expect(userService.create).toHaveBeenCalledWith(dto);
+      expect(userService.create).toHaveBeenCalledWith(dto, undefined);
       expect(jwtService.sign).toHaveBeenCalledWith({
         sub: 'user-id',
         email: 'john@mail.com',
         role: 'BUYER',
       });
       expect(result).toEqual({ accessToken: token });
+    });
+
+    it('should forward organizer data when role is ORGANIZER', async () => {
+      const dto = {
+        name: 'John Corp',
+        email: 'john@corp.com',
+        password: '123456',
+        role: 'ORGANIZER' as const,
+        organizer: {
+          legalName: 'John Corp LTDA',
+          document: '12345678000190',
+        },
+      };
+      const createdUser = {
+        id: 'user-id',
+        name: 'John Corp',
+        email: 'john@corp.com',
+        role: 'BUYER',
+      };
+      const token = 'jwt-token';
+
+      userService.create.mockResolvedValue(createdUser);
+      jwtService.sign.mockReturnValue(token);
+
+      await service.register(dto);
+
+      expect(userService.create).toHaveBeenCalledWith(dto, dto.organizer);
+    });
+
+    it('should throw BadRequestException when ORGANIZER has no organizer data', async () => {
+      const dto = {
+        name: 'John',
+        email: 'john@mail.com',
+        password: '123456',
+        role: 'ORGANIZER' as const,
+      };
+
+      await expect(service.register(dto)).rejects.toThrow(BadRequestException);
+      expect(userService.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when BUYER sends organizer data', async () => {
+      const dto = {
+        name: 'John',
+        email: 'john@mail.com',
+        password: '123456',
+        role: 'BUYER' as const,
+        organizer: {
+          legalName: 'John Corp LTDA',
+          document: '12345678000190',
+        },
+      };
+
+      await expect(service.register(dto)).rejects.toThrow(BadRequestException);
+      expect(userService.create).not.toHaveBeenCalled();
     });
   });
 });

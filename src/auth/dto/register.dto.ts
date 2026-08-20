@@ -13,14 +13,27 @@ import { Type } from 'class-transformer';
 import { IsCPFOrCNPJ } from 'src/common/validators/document.validator';
 
 export class OrganizerDto {
+  @ApiProperty({
+    description: 'Legal name of the organizer company',
+    example: 'John Corp LTDA',
+  })
   @IsNotEmpty()
   @IsString()
   legalName: string;
 
+  @ApiProperty({
+    description: 'Trade name of the organizer company',
+    required: false,
+    example: 'John Corp',
+  })
   @IsOptional()
   @IsString()
   tradeName?: string;
 
+  @ApiProperty({
+    description: 'CPF or CNPJ of the organizer',
+    example: '12345678000190',
+  })
   @IsCPFOrCNPJ()
   document: string;
 }
@@ -44,11 +57,22 @@ export class RegisterDto {
   @Length(6)
   password: string;
 
+  @ApiProperty({
+    description: 'User role',
+    enum: ['BUYER', 'ORGANIZER'],
+    default: 'BUYER',
+    required: false,
+  })
   @IsOptional()
   @IsString()
   @IsIn(['BUYER', 'ORGANIZER'])
   role?: 'BUYER' | 'ORGANIZER' = 'BUYER';
 
+  @ApiProperty({
+    description: 'Organizer data, required when role is ORGANIZER',
+    type: OrganizerDto,
+    required: false,
+  })
   @IsOptional()
   @ValidateNested()
   @Type(() => OrganizerDto)

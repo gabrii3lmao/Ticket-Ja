@@ -32,7 +32,7 @@ export class AuthService {
 
   async register(data: RegisterDto) {
     this.validateUserRole(data);
-    const user = await this.userService.create(data);
+    const user = await this.userService.create(data, data.organizer);
     return this.login(user);
   }
 

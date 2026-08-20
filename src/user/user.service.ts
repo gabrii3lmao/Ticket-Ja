@@ -8,6 +8,7 @@ import { PrismaService } from 'src/prisma.service';
 import { User } from 'generated/prisma/client';
 import { CreateUserDto } from './dto/create-user.dto';
 import * as bcrypt from 'bcrypt';
+import { OrganizerDto } from 'src/auth/dto/register.dto';
 
 @Injectable()
 export class UserService {
@@ -15,21 +16,44 @@ export class UserService {
 
   constructor(private prisma: PrismaService) {}
 
-  async create(data: CreateUserDto): Promise<Omit<User, 'passwordHash'>> {
+  async create(
+    data: CreateUserDto,
+    organizer?: OrganizerDto,
+  ): Promise<Omit<User, 'passwordHash'>> {
     await this.ensureEmailIsUnique(data.email);
+
+    if (organizer) {
+      await this.ensureDocumentIsUnique(organizer.document);
+    }
 
     const hashedPassword = await bcrypt.hash(data.password, this.SALT_ROUNDS);
 
-    const newUser = await this.prisma.user.create({
-      data: {
-        name: data.name,
-        email: data.email,
-        passwordHash: hashedPassword,
-      },
+    const newUser = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          name: data.name,
+          email: data.email,
+          passwordHash: hashedPassword,
+        },
+      });
+
+      if (organizer) {
+        await tx.organizerAplication.create({
+          data: {
+            legalName: organizer.legalName,
+            tradeName: organizer.tradeName,
+            document: organizer.document,
+            userId: user.id,
+            status: 'PENDING',
+          },
+        });
+      }
+
+      return user;
     });
 
     const safeUser = { ...newUser };
-    //@ts-expect-error: delete is recomended
+    // @ts-expect-error - remove sensitive field before returning
     delete safeUser.passwordHash;
     return safeUser;
   }
@@ -79,6 +103,17 @@ export class UserService {
       throw new ConflictException(
         'An account with this email address already exists.',
       );
+    }
+  }
+
+  private async ensureDocumentIsUnique(document: string) {
+    const [application, profile] = await Promise.all([
+      this.prisma.organizerAplication.findUnique({ where: { document } }),
+      this.prisma.organizerProfile.findUnique({ where: { document } }),
+    ]);
+
+    if (application || profile) {
+      throw new ConflictException('This document already has an account.');
     }
   }
 }

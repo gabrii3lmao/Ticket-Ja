@@ -33,6 +33,10 @@ const mockPrisma = {
     findUnique: jest.fn(),
     deleteMany: jest.fn(),
   },
+  organizerAplication: {
+    create: jest.fn(),
+    findUnique: jest.fn(),
+  },
   order: {
     count: jest.fn(),
   },
@@ -50,6 +54,9 @@ describe('UserService', () => {
     }).compile();
 
     service = module.get<UserService>(UserService);
+    mockPrisma.$transaction.mockImplementation(
+      (cb: (tx: typeof mockPrisma) => Promise<unknown>) => cb(mockPrisma),
+    );
   });
 
   afterEach(() => {
@@ -106,6 +113,67 @@ describe('UserService', () => {
 
       await expect(service.create(dto)).rejects.toThrow(ConflictException);
       expect(mockPrisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('should create a PENDING organizer application when organizer data is provided', async () => {
+      const dto = { name: 'John', email: 'john@mail.com', password: '123456' };
+      const organizer = {
+        legalName: 'John Corp LTDA',
+        tradeName: 'John Corp',
+        document: '12345678000190',
+      };
+      const createdUser = {
+        id: 'uuid',
+        name: 'John',
+        email: 'john@mail.com',
+        passwordHash: 'hashed-bcrypt-value',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-bcrypt-value');
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.organizerAplication.findUnique.mockResolvedValue(null);
+      mockPrisma.organizerProfile.findUnique.mockResolvedValue(null);
+      mockPrisma.user.create.mockResolvedValue(createdUser);
+      mockPrisma.organizerAplication.create.mockResolvedValue({
+        id: 'app-uuid',
+        status: 'PENDING',
+      });
+
+      const result = await service.create(dto, organizer);
+
+      expect(mockPrisma.organizerAplication.create).toHaveBeenCalledWith({
+        data: {
+          legalName: organizer.legalName,
+          tradeName: organizer.tradeName,
+          document: organizer.document,
+          userId: 'uuid',
+          status: 'PENDING',
+        },
+      });
+      expect(result).not.toHaveProperty('passwordHash');
+    });
+
+    it('should throw ConflictException when document is already in use', async () => {
+      const dto = { name: 'John', email: 'john@mail.com', password: '123456' };
+      const organizer = {
+        legalName: 'John Corp LTDA',
+        document: '12345678000190',
+      };
+
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.organizerAplication.findUnique.mockResolvedValue({
+        id: 'app-uuid',
+        document: organizer.document,
+      });
+      mockPrisma.organizerProfile.findUnique.mockResolvedValue(null);
+
+      await expect(service.create(dto, organizer)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+      expect(mockPrisma.organizerAplication.create).not.toHaveBeenCalled();
     });
   });
 
