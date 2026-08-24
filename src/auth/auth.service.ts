@@ -1,39 +1,62 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from 'src/user/user.service';
 import * as bcrypt from 'bcrypt';
 import { User } from 'generated/prisma/client';
+import { Role } from 'generated/prisma/enums';
 import { RegisterDto } from './dto/register.dto';
+import { RefreshTokenService } from './refresh-token.service';
+import { SignInDto } from './dto/login.dto';
+import { PrismaService } from 'src/prisma.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private userService: UserService,
     private jwtService: JwtService,
+    private refreshTokenService: RefreshTokenService,
+    private prisma: PrismaService,
   ) {}
 
-  async validateUser(email: string, password: string): Promise<User | null> {
+  async validateUser(email: string, password: string): Promise<User> {
     const user = await this.userService.findByEmail(email);
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
-      return null;
+      throw new UnauthorizedException('Invalid credentials');
     }
     return user;
   }
 
-  login(user: { id: string; email: string; role: string }) {
+  async login(data: SignInDto) {
+    const user = await this.validateUser(data.email, data.password);
+
+    const accessToken = this.generateAccessToken({
+      email: user.email,
+      id: user.id,
+      role: user.role,
+    });
+
+    const refreshToken = await this.refreshTokenService.generateRefreshToken(
+      user.id,
+    );
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { passwordHash, ...userWithoutPassword } = user;
+
     return {
-      accessToken: this.jwtService.sign({
-        sub: user.id,
-        email: user.email,
-        role: user.role,
-      }),
+      accessToken,
+      refreshToken,
+      user: userWithoutPassword,
     };
   }
 
   async register(data: RegisterDto) {
     this.validateUserRole(data);
-    const user = await this.userService.create(data, data.organizer);
-    return this.login(user);
+    await this.userService.create(data, data.organizer);
+    return this.login({ email: data.email, password: data.password });
   }
 
   async delete(userId: string) {
@@ -48,5 +71,46 @@ export class AuthService {
     if (data.role === 'BUYER' && data.organizer) {
       throw new BadRequestException('Cannot be a organizer');
     }
+  }
+
+  async refreshTokens(refreshToken: string) {
+    const { userId } =
+      await this.refreshTokenService.validateRefreshToken(refreshToken);
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Usuário não encontrado');
+    }
+
+    await this.refreshTokenService.revokeRefreshToken(refreshToken);
+
+    const accessToken = this.generateAccessToken(user);
+    const newRefreshToken = await this.refreshTokenService.generateRefreshToken(
+      user.id,
+    );
+
+    return {
+      accessToken,
+      refreshToken: newRefreshToken,
+    };
+  }
+
+  async logout(refreshToken: string): Promise<void> {
+    await this.refreshTokenService.revokeRefreshToken(refreshToken);
+  }
+
+  private generateAccessToken(user: {
+    id: string;
+    email: string;
+    role: Role;
+  }): string {
+    return this.jwtService.sign({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
   }
 }

@@ -3,7 +3,6 @@ jest.mock('generated/prisma/client', () => ({
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { UnauthorizedException } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { ActiveUserPipe } from './pipes/active-user.pipe';
@@ -12,7 +11,8 @@ import { UserService } from 'src/user/user.service';
 const mockAuthService = {
   register: jest.fn(),
   login: jest.fn(),
-  validateUser: jest.fn(),
+  refreshTokens: jest.fn(),
+  logout: jest.fn(),
 };
 
 const mockUserService = {
@@ -44,7 +44,7 @@ describe('AuthController', () => {
   describe('register', () => {
     it('should call authService.register with the DTO', async () => {
       const dto = { name: 'John', email: 'john@mail.com', password: '123456' };
-      const result = { accessToken: 'token' };
+      const result = { accessToken: 'token', refreshToken: 'refresh' };
 
       mockAuthService.register.mockResolvedValue(result);
 
@@ -56,33 +56,51 @@ describe('AuthController', () => {
   });
 
   describe('signIn', () => {
-    it('should call authService.login when credentials are valid', async () => {
+    it('should call authService.login with the DTO', async () => {
       const dto = { email: 'john@mail.com', password: '123456' };
-      const user = { id: 'user-id', email: 'john@mail.com' };
-      const result = { accessToken: 'token' };
+      const result = {
+        accessToken: 'token',
+        refreshToken: 'refresh',
+        user: { id: 'user-id', email: 'john@mail.com' },
+      };
 
-      mockAuthService.validateUser.mockResolvedValue(user);
-      mockAuthService.login.mockReturnValue(result);
+      mockAuthService.login.mockResolvedValue(result);
 
       const response = await controller.signIn(dto);
 
-      expect(authService.validateUser).toHaveBeenCalledWith(
-        dto.email,
-        dto.password,
-      );
-      expect(authService.login).toHaveBeenCalledWith(user);
+      expect(authService.login).toHaveBeenCalledWith(dto);
       expect(response).toEqual(result);
     });
+  });
 
-    it('should throw UnauthorizedException when credentials are invalid', async () => {
-      const dto = { email: 'wrong@mail.com', password: 'wrong' };
+  describe('refresh', () => {
+    it('should call authService.refreshTokens with the refresh token', async () => {
+      const dto = { refreshToken: 'old-refresh-token' };
+      const result = {
+        accessToken: 'new-token',
+        refreshToken: 'new-refresh',
+      };
 
-      mockAuthService.validateUser.mockResolvedValue(null);
+      mockAuthService.refreshTokens.mockResolvedValue(result);
 
-      await expect(controller.signIn(dto as any)).rejects.toThrow(
-        UnauthorizedException,
+      const response = await controller.refresh(dto);
+
+      expect(authService.refreshTokens).toHaveBeenCalledWith(
+        'old-refresh-token',
       );
-      expect(authService.login).not.toHaveBeenCalled();
+      expect(response).toEqual(result);
+    });
+  });
+
+  describe('logout', () => {
+    it('should call authService.logout with the refresh token', async () => {
+      const dto = { refreshToken: 'refresh-token' };
+
+      mockAuthService.logout.mockResolvedValue(undefined);
+
+      await controller.logout(dto);
+
+      expect(authService.logout).toHaveBeenCalledWith('refresh-token');
     });
   });
 });

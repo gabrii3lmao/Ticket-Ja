@@ -5,7 +5,6 @@ import {
   HttpCode,
   HttpStatus,
   Post,
-  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiOperation,
@@ -17,6 +16,7 @@ import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
 import { RegisterDto } from './dto/register.dto';
 import { SignInDto } from './dto/login.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 import {
   CurrentUser,
   type UserPayload,
@@ -44,9 +44,26 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Returns JWT access token' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   async signIn(@Body() data: SignInDto) {
-    const user = await this.authService.validateUser(data.email, data.password);
-    if (!user) throw new UnauthorizedException('Invalid credentials');
-    return this.authService.login(user);
+    return this.authService.login(data);
+  }
+
+  @Post('refresh')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Refresh access token using refresh token' })
+  @ApiResponse({ status: 200, description: 'Returns new token pair' })
+  @ApiResponse({ status: 401, description: 'Invalid or expired refresh token' })
+  refresh(@Body() data: RefreshTokenDto) {
+    return this.authService.refreshTokens(data.refreshToken);
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Revoke refresh token (logout)' })
+  @ApiResponse({ status: 204, description: 'Refresh token revoked' })
+  async logout(@Body() data: RefreshTokenDto) {
+    await this.authService.logout(data.refreshToken);
   }
 
   @Delete('account')

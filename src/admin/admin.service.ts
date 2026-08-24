@@ -26,7 +26,7 @@ export class AdminService {
 
     const skip = (page - 1) * limit;
     const orderBy = { [sortBy]: sortOrder };
-    
+
     const where: Prisma.OrganizerAplicationWhereInput = {
       status,
       document,

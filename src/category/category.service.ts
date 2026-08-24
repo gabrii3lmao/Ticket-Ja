@@ -58,7 +58,7 @@ export class CategoryService {
       sortOrder = 'desc',
     } = query;
     const skip = (page - 1) * limit;
-    
+
     const where: Prisma.CategoryWhereInput = {
       eventId,
       name: name ? { contains: name, mode: 'insensitive' } : undefined,

@@ -24,6 +24,7 @@ model User {
   organizerProfiles   OrganizerProfile?
   gatewayCustomers    GatewayCustomer[]
   organizerAplication OrganizerAplication?
+  refreshTokens       RefreshToken[]
 }
 
 model OrganizerProfile {
@@ -266,6 +267,18 @@ model Coupon {
   event   Event?  @relation(fields: [eventId], references: [id])
 
   orders Order[]
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
 }
 
 enum EventStatus {
