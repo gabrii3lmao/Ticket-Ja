@@ -57,6 +57,7 @@ export class AuthController {
     return this.authService.refreshTokens(data.refreshToken);
   }
 
+  @Public()
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiBearerAuth()

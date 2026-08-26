@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -28,6 +29,7 @@ import {
 import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { Role } from 'generated/prisma/enums';
+import { CacheInterceptor } from '@nestjs/cache-manager';
 
 @ApiTags('category')
 @Controller('event/:eventId/category')
@@ -49,6 +51,7 @@ export class CategoryController {
 
   @Public()
   @Get()
+  @UseInterceptors(CacheInterceptor)
   @ApiOperation({ summary: 'List all categories' })
   @ApiResponse({
     status: 200,
@@ -60,6 +63,7 @@ export class CategoryController {
 
   @Public()
   @Get(':id')
+  @UseInterceptors(CacheInterceptor)
   @ApiOperation({ summary: 'Get category by ID' })
   @ApiResponse({ status: 200, description: 'Returns the category' })
   @ApiResponse({ status: 404, description: 'Category not found' })

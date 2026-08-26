@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UserModule } from './user/user.module';
 import { EventModule } from './event/event.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { VenueModule } from './venue/venue.module';
 import { PrismaModule } from './prisma.module';
@@ -15,10 +15,24 @@ import { RolesGuard } from './auth/guards/roles.guard';
 import { PaymentModule } from './payment/payment.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AdminModule } from './admin/admin.module';
+import { CacheInterceptor, CacheModule } from '@nestjs/cache-manager';
+import { createKeyv } from '@keyv/redis';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    CacheModule.registerAsync({
+      inject: [ConfigService],
+      isGlobal: true,
+      useFactory: (configService: ConfigService) => {
+        const redisUrl = configService.get<string>('REDIS_URL');
+
+        return {
+          stores: [createKeyv(redisUrl)],
+          ttl: 60000,
+        };
+      },
+    }),
     ScheduleModule.forRoot(),
     PrismaModule,
     UserModule,

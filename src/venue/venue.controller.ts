@@ -9,6 +9,7 @@ import {
   Post,
   Put,
   Query,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -28,6 +29,7 @@ import {
 import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { Role } from 'generated/prisma/enums';
+import { CacheInterceptor } from '@nestjs/cache-manager';
 
 @ApiTags('venue')
 @Controller('venue')
@@ -48,6 +50,7 @@ export class VenueController {
 
   @Public()
   @Get()
+  @UseInterceptors(CacheInterceptor)
   @ApiOperation({ summary: 'List all venues' })
   @ApiResponse({ status: 200, description: 'Returns paginated list of venues' })
   findAll(@Query() query: QueryVenueDto) {
@@ -56,6 +59,7 @@ export class VenueController {
 
   @Public()
   @Get(':id')
+  @UseInterceptors(CacheInterceptor)
   @ApiOperation({ summary: 'Get venue by ID' })
   @ApiResponse({ status: 200, description: 'Returns the venue' })
   @ApiResponse({ status: 404, description: 'Venue not found' })

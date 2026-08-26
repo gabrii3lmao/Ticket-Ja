@@ -10,6 +10,7 @@ import {
   Post,
   Put,
   Query,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -30,6 +31,7 @@ import { QueryEventDto } from './dto/query-event.dto';
 import { UpdateEventStatusDto } from './dto/update-event-status.dto';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { Role } from 'generated/prisma/enums';
+import { CacheInterceptor } from '@nestjs/cache-manager';
 
 @ApiTags('event')
 @Controller('event')
@@ -51,6 +53,7 @@ export class EventController {
 
   @Public()
   @Get()
+  @UseInterceptors(CacheInterceptor)
   @ApiOperation({ summary: 'Get all events' })
   @ApiResponse({ status: 200, description: 'Returns list of events' })
   getAll(@Query() paginationDto: QueryEventDto) {
@@ -59,6 +62,7 @@ export class EventController {
 
   @Public()
   @Get(':id')
+  @UseInterceptors(CacheInterceptor)
   @ApiOperation({ summary: 'Get event by ID' })
   @ApiResponse({ status: 200, description: 'Returns the event' })
   @ApiResponse({ status: 404, description: 'Event not found' })
