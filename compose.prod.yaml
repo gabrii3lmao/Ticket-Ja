@@ -15,6 +15,14 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  cache:
+    image: redis:7.4-alpine
+    container_name: meu_redis
+    restart: unless-stopped
+    command: redis-server --save 20 1 --loglevel warning --requirepass admin@123
+    volumes:
+      - cache:/data
+
   api:
     build:
       context: .
@@ -26,6 +34,7 @@ services:
 
     depends_on:
       - db
+      - cache
 
     ports:
       - "3000:3000"
@@ -37,4 +46,6 @@ services:
       - .env.production.local
 
 volumes:
+  cache:
+    driver: local
   postgres_data:

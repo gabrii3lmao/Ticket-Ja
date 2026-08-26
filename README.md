@@ -1,35 +1,49 @@
 # Ticket Já API
 
-RESTful API for event ticket sales built with **NestJS 11**, **Prisma 7** and **PostgreSQL 15**.
+RESTful API for event ticket sales built with **NestJS 11**, **Prisma 7**, **PostgreSQL 15** and **Redis**.
 
-## Tech Stack
+## Architecture
 
-- **Runtime:** Node.js + TypeScript (ES2023)
-- **Framework:** NestJS with modular architecture
-- **ORM:** Prisma 7 with native PostgreSQL adapter (`@prisma/adapter-pg`)
-- **Auth:** JWT via passport-jwt (global guard with `@Public()` bypass)
-- **Validation:** class-validator + class-transformer (whitelist + transform enabled)
-- **API Docs:** Swagger/OpenAPI at `/api`
-- **Payments:** ASAAS (PIX) via Strategy pattern + Axios (`@nestjs/axios`), webhooks + expiry job (`@nestjs/schedule`)
-- **Testing:** Jest 30 (unit) + Supertest (e2e)
-- **Lint/Format:** ESLint 9 (flat config) + Prettier 3
-- **Container:** Docker multi-stage + Docker Compose
-
-## Project Structure
+The project follows a **modular monolith** architecture with clear domain boundaries:
 
 ```
 src/
-├── auth/        — Authentication (register, signin, JWT strategy, guards)
-├── user/        — User management (create, findByEmail, delete)
-├── venue/       — Venue CRUD with ownership, pagination, filters
-├── event/       — Event CRUD with ownership, status lifecycle, pagination
-├── category/    — Category CRUD with ownership check via parent event
-├── order/       — Purchase flow with atomic transactions and stock control
-├── payment/     — Payment gateway abstraction (ASAAS/PIX), webhooks, expiry job
-├── ticket/      — Ticket validation (QR code), usage tracking, listing
-├── health/      — Health check endpoint (Prisma ping via @nestjs/terminus)
-└── common/      — Shared filters (HTTP exception, Prisma exception)
+├── auth/           # JWT authentication, guards, role-based access control
+├── user/           # User management
+├── venue/          # Venue CRUD with ownership validation
+├── event/          # Event lifecycle (DRAFT → PUBLISHED), ownership, pagination
+├── category/       # Ticket categories with pricing and stock control
+├── order/          # Purchase flow with atomic stock reservation
+├── payment/        # Gateway abstraction (ASAAS/PIX), webhooks, expiry job
+├── ticket/         # QR code validation, usage tracking
+├── admin/          # Organizer application review (ADMIN only)
+├── health/         # Health check endpoint (Prisma + Terminus)
+└── common/         # Shared filters, pipes, and utilities
 ```
+
+**Key design decisions:**
+
+- **Global guards** — JWT authentication and role-based access are enforced globally via `APP_GUARD`. Routes opt-out with `@Public()`.
+- **Strategy pattern** — Payment providers (ASAAS, Mercado Pago, etc.) implement a common interface, making gateway swaps trivial.
+- **Atomic stock control** — Order creation uses Prisma's atomic `decrement` with optimistic locking (`WHERE quantity >= requested`) to prevent overselling under concurrency.
+- **Idempotent webhooks** — ASAAS webhook handler deduplicates events by `payment.id + event` to safely handle retries.
+- **Cache layer** — Redis-backed cache on read-heavy endpoints (events, venues, categories) with per-method interceptor control.
+- **Rate limiting** — Multi-tier throttling (short/medium/long) via `@nestjs/throttler` with Redis storage, stricter limits on auth and order endpoints.
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Runtime | Node.js + TypeScript (ES2023) |
+| Framework | NestJS 11 (Express) |
+| ORM | Prisma 7 (native PostgreSQL adapter) |
+| Database | PostgreSQL 15 |
+| Cache / Rate-limit store | Redis 7.4 |
+| Auth | JWT (passport-jwt) with refresh tokens |
+| Payments | ASAAS (PIX) via Strategy pattern |
+| API Docs | Swagger/OpenAPI at `/docs` |
+| Testing | Jest 30 (unit) + Supertest (e2e) |
+| Container | Docker multi-stage + Docker Compose |
 
 ## Quick Start
 
@@ -40,157 +54,84 @@ cp .env.example .env
 # 2. Install dependencies
 yarn install
 
-# 3. Start PostgreSQL
+# 3. Start PostgreSQL and Redis
 docker compose up -d
 
 # 4. Generate Prisma client and apply migrations
-npx prisma generate
-npx prisma migrate deploy
+yarn prisma generate
+yarn prisma migrate deploy
 
 # 5. Seed the database
-npx prisma db seed
+yarn prisma db seed
 
 # 6. Start dev server
 yarn start:dev
 ```
 
-The API is available at `http://localhost:3000` and Swagger docs at `http://localhost:3000/api`.
+The API runs at `http://localhost:3000`. Swagger docs are available at `http://localhost:3000/api` (disabled in production).
 
 ## Seed Data
 
-The seed creates:
+The seed populates the database with realistic test data using Faker:
 
-| Entity | Data |
-|--------|------|
-| **Admin user** | `admin@email.com` / `123456` |
-| **Organizer user** | `organizer@email.com` / `123456` |
-| **Venue** | Maracanã (Rio de Janeiro) |
-| **Event (PUBLISHED)** | Rock in Rio 2026 — 4 categories (Pista, VIP) |
-| **Event (DRAFT)** | Lollapalooza 2026 |
-| **Order + Tickets** | 2 Pista tickets for the admin user |
+- **Users** — 1 admin, 2 organizers (with profiles and approved applications), 7 buyers
+- **Venues** — 4 venues across Brazil (Arena São Paulo, Estádio Olímpico, Centro de Convenções, Teatro Municipal)
+- **Events** — 5 events (3 published, 2 draft) with mixed organizers and venues
+- **Categories** — 9 ticket categories across events (Pista, VIP, Arquibancada, Camarote, etc.) with varying prices and stock
+- **Coupons** — 3 coupons (percentage and fixed discounts, with expiry dates)
+- **Orders** — 8 orders in different states (PAID, PENDING, CANCELED) with corresponding payments (APPROVED, PENDING, FAILED, REFUNDED) and tickets
+
+Default credentials: `admin@email.com` / `organizer@email.com` / `maria@email.com` — password: `123456`
 
 ## API Endpoints
 
-### Auth
+All endpoints are documented in Swagger at `/api`. The API is organized into these domain groups:
 
-| Method | Route | Auth | Description |
-|--------|-------|------|-------------|
-| `POST` | `/auth/register` | Public | Create account |
-| `POST` | `/auth/signin` | Public | Sign in (returns JWT) |
-
-### Venue
-
-| Method | Route | Auth | Description |
-|--------|-------|------|-------------|
-| `POST` | `/venue` | Bearer | Create venue |
-| `GET` | `/venue` | Public | List venues (paginated) |
-| `GET` | `/venue/:id` | Public | Get venue by ID |
-| `PUT` | `/venue/:id` | Bearer | Update venue |
-| `DELETE` | `/venue/:id` | Bearer | Delete venue |
-
-### Event
-
-| Method | Route | Auth | Description |
-|--------|-------|------|-------------|
-| `POST` | `/event` | Bearer | Create event |
-| `GET` | `/event` | Public | List events (paginated) |
-| `GET` | `/event/:id` | Public | Get event by ID |
-| `PUT` | `/event/:id` | Bearer | Update event |
-| `PATCH` | `/event/:id/status` | Bearer | Update event status |
-| `DELETE` | `/event/:id` | Bearer | Delete event |
-
-### Category
-
-| Method | Route | Auth | Description |
-|--------|-------|------|-------------|
-| `POST` | `/event/:eventId/category` | Bearer | Create category |
-| `GET` | `/event/:eventId/category` | Public | List categories |
-| `GET` | `/event/:eventId/category/:id` | Public | Get category by ID |
-| `PATCH` | `/event/:eventId/category/:id` | Bearer | Update category |
-| `DELETE` | `/event/:eventId/category/:id` | Bearer | Delete category |
-
-### Order
-
-| Method | Route | Auth | Description |
-|--------|-------|------|-------------|
-| `POST` | `/order` | Bearer | Create order (purchases tickets, returns `payment` PIX data) |
-
-### Payment
-
-| Method | Route | Auth | Description |
-|--------|-------|------|-------------|
-| `POST` | `/payments/webhook/asaas` | Webhook token | ASAAS webhook (dedup + idempotent transitions) |
-
-> Full payment flow and gateway integration: see [docs/PAGAMENTOS.md](docs/PAGAMENTOS.md).
-
-### Ticket
-
-| Method | Route | Auth | Description |
-|--------|-------|------|-------------|
-| `GET` | `/ticket` | Bearer | List current user tickets |
-| `GET` | `/ticket/:id` | Bearer | Get ticket by ID |
-| `GET` | `/ticket/validate/:code` | Public | Validate ticket by QR code |
-| `PATCH` | `/ticket/:id/use` | Bearer | Mark ticket as used |
+- **Auth** — Register, sign in, refresh tokens, logout, account deletion
+- **Venue** — CRUD with ownership validation and pagination
+- **Event** — CRUD with status lifecycle management (DRAFT ↔ PUBLISHED)
+- **Category** — CRUD nested under events, with pricing and stock control
+- **Order** — Ticket purchase with atomic stock reservation
+- **Ticket** — QR code validation, listing, usage tracking
+- **Payment** — ASAAS webhook for payment confirmation
+- **Admin** — Organizer application review (ADMIN only)
+- **Health** — Service health check with Prisma ping
 
 ## Payments (ASAAS / PIX)
 
-- Gateway calls run **outside** the order transaction — a gateway failure returns `502` and the expiry job frees the reserved stock.
-- `POST /order` creates the payment with 30-min PIX due date and returns `payment: { id, externalId, providerData, dueDate, status }`.
-- ASAAS webhook at `/api/payments/webhook/asaas` (auth via `ASAAS_WEBHOOK_TOKEN` in the `access_token` header) confirms payment, marks the order paid and releases tickets.
-- A `@nestjs/schedule` job (every 5 min) expires `PENDING` payments — cancels the order and restores stock.
+The payment flow is designed for resilience:
 
-Required env vars:
+1. `POST /order` reserves stock atomically, then calls the ASAAS gateway **outside** the transaction.
+2. If the gateway is down, the API returns `502` — the order stays `PENDING` and the expiry job handles cleanup.
+3. ASAAS webhook (`/api/payments/webhook/asaas`) confirms payment, marks the order as `PAID`, and releases tickets.
+4. A scheduled job (every 5 minutes) expires `PENDING` payments older than 30 minutes, cancels the order, and restores stock.
+
+## Environment Variables
+
+See `.env.example` for the full list. Key variables:
 
 ```bash
+DATABASE_URL=         # PostgreSQL connection string
+REDIS_URL=            # Redis connection string (cache + rate-limit store)
+JWT_SECRET=           # Access token signing key
+JWT_REFRESH_SECRET=   # Refresh token signing key
 ASAAS_API_KEY=        # ASAAS sandbox/prod API key
 ASAAS_BASE_URL=       # e.g. https://sandbox.asaas.com/api/v3
-ASAAS_WEBHOOK_TOKEN=  # secret used to authenticate incoming webhooks
-```
-
-## Authentication
-
-All protected endpoints require a Bearer JWT token in the `Authorization` header.
-
-```bash
-# Example: signin
-curl -X POST http://localhost:3000/auth/signin \
-  -H "Content-Type: application/json" \
-  -d '{"email": "admin@email.com", "password": "123456"}'
-
-# Response: { "accessToken": "eyJhbGciOiJIUzI1NiIs..." }
-
-# Example: list tickets
-curl http://localhost:3000/ticket \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-## Docker / Podman
-
-Both `docker compose` and `podman-compose` are supported.
-
-**Development** — starts only PostgreSQL:
-
-```bash
-docker compose up -d
-```
-
-**Production** — builds and starts both PostgreSQL and the API:
-
-```bash
-docker compose -f compose.prod.yaml up -d --build
+ASAAS_WEBHOOK_TOKEN=  # Secret for incoming webhook authentication
 ```
 
 ## Scripts
 
 ```bash
-yarn start:dev       # Watch mode
-yarn start:prod      # Production
+yarn start:dev       # Dev server with watch
+yarn start:prod      # Production build
 yarn test            # Unit tests
 yarn test:e2e        # E2E tests (requires running DB)
 yarn test:cov        # Coverage report
-yarn lint            # ESLint
-npx prisma studio    # Database browser
-npx prisma db seed   # Seed database
+yarn lint            # ESLint with type-aware rules
+yarn build           # Production build
+yarn prisma studio    # Database browser
+yarn prisma db seed   # Seed database
 ```
 
 ## License
