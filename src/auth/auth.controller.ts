@@ -22,6 +22,7 @@ import {
   type UserPayload,
 } from './decorators/current-user.decorator';
 import { ActiveUserPipe } from './pipes/active-user.pipe';
+import { Throttle } from '@nestjs/throttler';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -30,6 +31,7 @@ export class AuthController {
 
   @Public()
   @Post('register')
+  @Throttle({ short: { limit: 3, ttl: 1000 } })
   @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({ status: 201, description: 'User registered successfully' })
   @ApiResponse({ status: 409, description: 'Email already in use' })
@@ -37,8 +39,9 @@ export class AuthController {
     return this.authService.register(data);
   }
 
-  @Post('signin')
   @Public()
+  @Post('signin')
+  @Throttle({ short: { limit: 3, ttl: 1000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Sign in with email and password' })
   @ApiResponse({ status: 200, description: 'Returns JWT access token' })

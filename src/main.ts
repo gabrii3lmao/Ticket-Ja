@@ -6,6 +6,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { PrismaClientExceptionFilter } from './common/filters/prisma-exception.filter';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import { ThrottlerExceptionFilter } from './common/filters/throttler-exception.filter';
 
 async function bootstrap() {
   const app = (await NestFactory.create(AppModule)).setGlobalPrefix('api');
@@ -35,6 +36,7 @@ async function bootstrap() {
   );
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalFilters(new PrismaClientExceptionFilter());
+  app.useGlobalFilters(new ThrottlerExceptionFilter());
   app.use(helmet());
   await app.listen(process.env.PORT ?? 3000);
 }

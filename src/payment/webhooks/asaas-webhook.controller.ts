@@ -3,6 +3,7 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from 'src/auth/decorators/public.decorator';
 import { AsaasWebhookGuard } from './asaas-webhook.guard';
 import { AsaasWebhookService } from './asaas-webhook.service';
+import { SkipThrottle } from '@nestjs/throttler';
 
 @ApiTags('payments')
 @Controller('payments/webhook/asaas')
@@ -11,6 +12,7 @@ export class AsaasWebhookController {
   @Post()
   @Public()
   @UseGuards(AsaasWebhookGuard)
+  @SkipThrottle()
   @ApiOperation({
     summary: 'ASAAS payment webhook',
     description:

@@ -4,7 +4,7 @@ import { UserModule } from './user/user.module';
 import { EventModule } from './event/event.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { VenueModule } from './venue/venue.module';
 import { PrismaModule } from './prisma.module';
@@ -15,8 +15,10 @@ import { RolesGuard } from './auth/guards/roles.guard';
 import { PaymentModule } from './payment/payment.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AdminModule } from './admin/admin.module';
-import { CacheInterceptor, CacheModule } from '@nestjs/cache-manager';
+import { CacheModule } from '@nestjs/cache-manager';
 import { createKeyv } from '@keyv/redis';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 
 @Module({
   imports: [
@@ -32,6 +34,19 @@ import { createKeyv } from '@keyv/redis';
           ttl: 60000,
         };
       },
+    }),
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        throttlers: [
+          { name: 'short', ttl: 1000, limit: 3 },
+          { name: 'medium', ttl: 10000, limit: 20 },
+          { name: 'long', ttl: 60000, limit: 100 },
+        ],
+        storage: new ThrottlerStorageRedisService(
+          config.get<string>('REDIS_URL'),
+        ),
+      }),
     }),
     ScheduleModule.forRoot(),
     PrismaModule,
@@ -50,6 +65,7 @@ import { createKeyv } from '@keyv/redis';
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule {}

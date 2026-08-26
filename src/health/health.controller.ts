@@ -8,6 +8,7 @@ import { Public } from 'src/auth/decorators/public.decorator';
 import { PrismaService } from 'src/prisma.service';
 import { ApiKeyGuard } from './guards/api-key.guard';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 
 @ApiTags('health')
 @Controller('health')
@@ -21,6 +22,7 @@ export class HealthController {
 
   @Get()
   @Public()
+  @SkipThrottle()
   @HealthCheck()
   @ApiOperation({ summary: 'Check service health' })
   @ApiResponse({ status: 200, description: 'Service is healthy' })

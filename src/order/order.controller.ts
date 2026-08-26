@@ -12,6 +12,7 @@ import {
   type UserPayload,
 } from 'src/auth/decorators/current-user.decorator';
 import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
+import { Throttle } from '@nestjs/throttler';
 
 @ApiTags('order')
 @Controller('order')
@@ -20,6 +21,7 @@ export class OrderController {
 
   @Post()
   @ApiBearerAuth()
+  @Throttle({ medium: { limit: 5, ttl: 10000 } })
   @ApiOperation({ summary: 'Purchase tickets' })
   @ApiResponse({
     status: 201,
