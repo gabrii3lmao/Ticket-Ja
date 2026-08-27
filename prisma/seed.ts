@@ -40,16 +40,38 @@ function calcOrder(amounts: { unitPrice: Prisma.Decimal; quantity: number }[]) {
 
 function randomEventName(): string {
   const types = [
-    'Festival', 'Show', 'Concerto', 'Balada', 'Rave', 'Encontro',
-    'Festa', 'Gala', 'Feira', 'Exposição',
+    'Festival',
+    'Show',
+    'Concerto',
+    'Balada',
+    'Rave',
+    'Encontro',
+    'Festa',
+    'Gala',
+    'Feira',
+    'Exposição',
   ];
   const themes = [
-    'Rock', 'Sertanejo', 'Eletrônico', 'Pop', 'Hip Hop', 'MPB',
-    'Forró', 'Axé', 'Pagode', 'Funk',
+    'Rock',
+    'Sertanejo',
+    'Eletrônico',
+    'Pop',
+    'Hip Hop',
+    'MPB',
+    'Forró',
+    'Axé',
+    'Pagode',
+    'Funk',
   ];
   const adjectives = [
-    'Grandioso', 'Incrível', 'Épico', 'Único', 'Especial',
-    'Memorável', 'Fantástico', 'Maravilhoso',
+    'Grandioso',
+    'Incrível',
+    'Épico',
+    'Único',
+    'Especial',
+    'Memorável',
+    'Fantástico',
+    'Maravilhoso',
   ];
   return `${faker.helpers.arrayElement(adjectives)} ${faker.helpers.arrayElement(types)} de ${faker.helpers.arrayElement(themes)}`;
 }
@@ -157,7 +179,9 @@ async function main() {
     },
   });
 
-  console.log(`Organizer profiles: ${organizerProfile.tradeName}, ${organizerProfile2.tradeName}`);
+  console.log(
+    `Organizer profiles: ${organizerProfile.tradeName}, ${organizerProfile2.tradeName}`,
+  );
 
   // ── Organizer Applications ─────────────────────────────────
   console.log('--- Creating organizer applications ---');
@@ -188,10 +212,26 @@ async function main() {
   console.log('--- Creating venues ---');
 
   const venuesData = [
-    { name: 'Arena São Paulo', capacity: 45000, organizerProfileId: organizerProfile.id },
-    { name: 'Estádio Olímpico', capacity: 60000, organizerProfileId: organizerProfile2.id },
-    { name: 'Centro de Convenções', capacity: 5000, organizerProfileId: organizerProfile.id },
-    { name: 'Teatro Municipal', capacity: 2000, organizerProfileId: organizerProfile2.id },
+    {
+      name: 'Arena São Paulo',
+      capacity: 45000,
+      organizerProfileId: organizerProfile.id,
+    },
+    {
+      name: 'Estádio Olímpico',
+      capacity: 60000,
+      organizerProfileId: organizerProfile2.id,
+    },
+    {
+      name: 'Centro de Convenções',
+      capacity: 5000,
+      organizerProfileId: organizerProfile.id,
+    },
+    {
+      name: 'Teatro Municipal',
+      capacity: 2000,
+      organizerProfileId: organizerProfile2.id,
+    },
   ];
 
   const venues = await Promise.all(
@@ -205,7 +245,9 @@ async function main() {
     ),
   );
 
-  console.log(`Venues: ${venues.map((v) => `${v.name} (${v.city}/${v.state})`).join(', ')}`);
+  console.log(
+    `Venues: ${venues.map((v) => `${v.name} (${v.city}/${v.state})`).join(', ')}`,
+  );
 
   // ── Events ─────────────────────────────────────────────────
   console.log('--- Creating events ---');
@@ -222,7 +264,8 @@ async function main() {
     },
     {
       name: 'Lollapalooza Brasil 2026',
-      description: 'Festival internacional de música com atrações de todo o mundo.',
+      description:
+        'Festival internacional de música com atrações de todo o mundo.',
       startDate: new Date('2026-03-28T14:00:00Z'),
       endDate: new Date('2026-03-30T23:00:00Z'),
       status: 'PUBLISHED' as const,
@@ -239,8 +282,12 @@ async function main() {
       venueId: venues[0].id,
     },
     (() => {
-      const start = new Date(Date.now() + faker.number.int({ min: 30, max: 180 }) * 86_400_000);
-      const end = new Date(start.getTime() + faker.number.int({ min: 2, max: 8 }) * 3_600_000);
+      const start = new Date(
+        Date.now() + faker.number.int({ min: 30, max: 180 }) * 86_400_000,
+      );
+      const end = new Date(
+        start.getTime() + faker.number.int({ min: 2, max: 8 }) * 3_600_000,
+      );
       return {
         name: randomEventName(),
         description: faker.lorem.paragraph(),
@@ -252,8 +299,12 @@ async function main() {
       };
     })(),
     (() => {
-      const start = new Date(Date.now() + faker.number.int({ min: 30, max: 180 }) * 86_400_000);
-      const end = new Date(start.getTime() + faker.number.int({ min: 2, max: 8 }) * 3_600_000);
+      const start = new Date(
+        Date.now() + faker.number.int({ min: 30, max: 180 }) * 86_400_000,
+      );
+      const end = new Date(
+        start.getTime() + faker.number.int({ min: 2, max: 8 }) * 3_600_000,
+      );
       return {
         name: randomEventName(),
         description: faker.lorem.paragraph(),
@@ -291,19 +342,73 @@ async function main() {
 
   const categoriesData = [
     // Carnaval 2026
-    { name: 'Pista', description: 'Acesso livre à pista de dança', price: '250.00', quantity: 30000, eventId: events[0].id },
-    { name: 'VIP', description: 'Acesso ao camarote com open bar e zona premium', price: '800.00', quantity: 500, eventId: events[0].id },
+    {
+      name: 'Pista',
+      description: 'Acesso livre à pista de dança',
+      price: '250.00',
+      quantity: 30000,
+      eventId: events[0].id,
+    },
+    {
+      name: 'VIP',
+      description: 'Acesso ao camarote com open bar e zona premium',
+      price: '800.00',
+      quantity: 500,
+      eventId: events[0].id,
+    },
     // Lollapalooza
-    { name: 'Arquibancada', description: 'Assento numerado na arquibancada', price: '180.00', quantity: 20000, eventId: events[1].id },
-    { name: 'Camarote', description: 'Camarote com visão privilegiada e catering', price: '650.00', quantity: 1000, eventId: events[1].id },
+    {
+      name: 'Arquibancada',
+      description: 'Assento numerado na arquibancada',
+      price: '180.00',
+      quantity: 20000,
+      eventId: events[1].id,
+    },
+    {
+      name: 'Camarote',
+      description: 'Camarote com visão privilegiada e catering',
+      price: '650.00',
+      quantity: 1000,
+      eventId: events[1].id,
+    },
     // Rock Underground
-    { name: 'Meia-entrada', description: 'Para estudantes e idosos (com comprovação)', price: '50.00', quantity: 1000, eventId: events[2].id },
-    { name: 'Inteira', description: 'Ingresso inteiro', price: '100.00', quantity: 2000, eventId: events[2].id },
+    {
+      name: 'Meia-entrada',
+      description: 'Para estudantes e idosos (com comprovação)',
+      price: '50.00',
+      quantity: 1000,
+      eventId: events[2].id,
+    },
+    {
+      name: 'Inteira',
+      description: 'Ingresso inteiro',
+      price: '100.00',
+      quantity: 2000,
+      eventId: events[2].id,
+    },
     // Evento aleatório 1
-    { name: 'Pista', description: 'Acesso geral', price: faker.commerce.price({ min: 50, max: 300, dec: 2 }), quantity: faker.number.int({ min: 500, max: 5000 }), eventId: events[3].id },
-    { name: 'VIP', description: 'Acesso premium', price: faker.commerce.price({ min: 200, max: 1000, dec: 2 }), quantity: faker.number.int({ min: 100, max: 500 }), eventId: events[3].id },
+    {
+      name: 'Pista',
+      description: 'Acesso geral',
+      price: faker.commerce.price({ min: 50, max: 300, dec: 2 }),
+      quantity: faker.number.int({ min: 500, max: 5000 }),
+      eventId: events[3].id,
+    },
+    {
+      name: 'VIP',
+      description: 'Acesso premium',
+      price: faker.commerce.price({ min: 200, max: 1000, dec: 2 }),
+      quantity: faker.number.int({ min: 100, max: 500 }),
+      eventId: events[3].id,
+    },
     // Evento aleatório 2
-    { name: 'Inteira', description: 'Ingresso padrão', price: faker.commerce.price({ min: 30, max: 200, dec: 2 }), quantity: faker.number.int({ min: 300, max: 3000 }), eventId: events[4].id },
+    {
+      name: 'Inteira',
+      description: 'Ingresso padrão',
+      price: faker.commerce.price({ min: 30, max: 200, dec: 2 }),
+      quantity: faker.number.int({ min: 300, max: 3000 }),
+      eventId: events[4].id,
+    },
   ];
 
   const categories = await Promise.all(
@@ -312,8 +417,12 @@ async function main() {
         data: {
           ...data,
           price: new Prisma.Decimal(data.price),
-          salesStart: new Date(Date.now() - faker.number.int({ min: 1, max: 30 }) * 86_400_000),
-          salesEnd: new Date(Date.now() + faker.number.int({ min: 15, max: 90 }) * 86_400_000),
+          salesStart: new Date(
+            Date.now() - faker.number.int({ min: 1, max: 30 }) * 86_400_000,
+          ),
+          salesEnd: new Date(
+            Date.now() + faker.number.int({ min: 15, max: 90 }) * 86_400_000,
+          ),
         },
       }),
     ),
@@ -369,7 +478,11 @@ async function main() {
       prisma.gatewayCustomer.create({
         data: {
           customerId: `cus_${faker.string.alphanumeric(14)}`,
-          provider: faker.helpers.arrayElement(['STRIPE', 'MERCADO_PAGO', 'ASAAS']),
+          provider: faker.helpers.arrayElement([
+            'STRIPE',
+            'MERCADO_PAGO',
+            'ASAAS',
+          ]),
           userId: buyer.id,
         },
       }),
@@ -643,7 +756,9 @@ async function main() {
   const additionalOrders = await Promise.all(
     buyers.slice(2, 6).map(async (buyer, idx) => {
       const eventIdx = idx % events.length;
-      const eventCategories = categories.filter((c) => c.eventId === events[eventIdx].id);
+      const eventCategories = categories.filter(
+        (c) => c.eventId === events[eventIdx].id,
+      );
       const cat = faker.helpers.arrayElement(eventCategories);
       const qty = faker.number.int({ min: 1, max: 4 });
       const amounts = [{ unitPrice: cat.price, quantity: qty }];
@@ -656,7 +771,12 @@ async function main() {
           qrCode: `http://localhost:3000/api/ticket/validate/${code}`,
           userId: buyer.id,
           eventId: events[eventIdx].id,
-          status: faker.helpers.arrayElement(['VALID', 'VALID', 'VALID', 'CANCELED']),
+          status: faker.helpers.arrayElement([
+            'VALID',
+            'VALID',
+            'VALID',
+            'CANCELED',
+          ]),
         };
       });
 
@@ -680,14 +800,31 @@ async function main() {
         include: { orderItems: { include: { tickets: true } } },
       });
 
-      const paymentStatus = order.status === 'PAID' ? 'APPROVED' : faker.helpers.arrayElement(['PENDING', 'PENDING', 'FAILED']);
+      const paymentStatus =
+        order.status === 'PAID'
+          ? 'APPROVED'
+          : faker.helpers.arrayElement(['PENDING', 'PENDING', 'FAILED']);
       await prisma.payment.create({
         data: {
-          provider: faker.helpers.arrayElement(['ASAAS', 'MERCADO_PAGO', 'PAGSEGURO']),
-          paymentMethod: faker.helpers.arrayElement(['PIX', 'CREDIT_CARD', 'BOLETO']),
+          provider: faker.helpers.arrayElement([
+            'ASAAS',
+            'MERCADO_PAGO',
+            'PAGSEGURO',
+          ]),
+          paymentMethod: faker.helpers.arrayElement([
+            'PIX',
+            'CREDIT_CARD',
+            'BOLETO',
+          ]),
           amount: order.total,
           status: paymentStatus,
-          paidAt: paymentStatus === 'APPROVED' ? new Date(Date.now() - faker.number.int({ min: 1, max: 7 }) * 86_400_000) : undefined,
+          paidAt:
+            paymentStatus === 'APPROVED'
+              ? new Date(
+                  Date.now() -
+                    faker.number.int({ min: 1, max: 7 }) * 86_400_000,
+                )
+              : undefined,
           orderId: order.id,
         },
       });
