@@ -23,7 +23,6 @@ export class QueryEventDto {
   @ApiProperty({
     description: 'Filter by event name (partial match)',
     required: false,
-    example: 'Rock',
   })
   @IsOptional()
   @IsString()
@@ -32,7 +31,6 @@ export class QueryEventDto {
   @ApiProperty({
     description: 'Filter by city (partial match)',
     required: false,
-    example: 'São Paulo',
   })
   @IsOptional()
   @IsString()
@@ -41,7 +39,6 @@ export class QueryEventDto {
   @ApiProperty({
     description: 'Filter by state (UF)',
     required: false,
-    example: 'SP',
   })
   @IsOptional()
   @IsString()
@@ -50,7 +47,6 @@ export class QueryEventDto {
   @ApiProperty({
     description: 'Filter events starting on or after this date',
     required: false,
-    example: '2026-01-01',
   })
   @IsOptional()
   @Type(() => Date)
@@ -60,7 +56,6 @@ export class QueryEventDto {
   @ApiProperty({
     description: 'Filter events ending on or before this date',
     required: false,
-    example: '2026-12-31',
   })
   @IsOptional()
   @Type(() => Date)

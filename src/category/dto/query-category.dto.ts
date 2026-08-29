@@ -31,7 +31,6 @@ export class QueryCategoryDto {
   @ApiProperty({
     description: 'Filter by name (partial match)',
     required: false,
-    example: 'Pista',
   })
   @IsOptional()
   @IsString()
@@ -40,7 +39,6 @@ export class QueryCategoryDto {
   @ApiProperty({
     description: 'Minimum price filter',
     required: false,
-    example: 50,
   })
   @IsOptional()
   @Type(() => Number)
@@ -50,7 +48,6 @@ export class QueryCategoryDto {
   @ApiProperty({
     description: 'Maximum price filter',
     required: false,
-    example: 500,
   })
   @IsOptional()
   @Type(() => Number)
@@ -60,7 +57,6 @@ export class QueryCategoryDto {
   @ApiProperty({
     description: 'Filter by sales start date (on or after)',
     required: false,
-    example: '2026-01-01',
   })
   @IsOptional()
   @Type(() => Date)
@@ -70,7 +66,6 @@ export class QueryCategoryDto {
   @ApiProperty({
     description: 'Filter by sales end date (on or before)',
     required: false,
-    example: '2026-12-31',
   })
   @IsOptional()
   @Type(() => Date)

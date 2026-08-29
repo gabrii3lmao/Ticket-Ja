@@ -22,7 +22,6 @@ export class QueryVenueDto {
   @ApiProperty({
     description: 'Filter by name (partial match)',
     required: false,
-    example: 'Maracanã',
   })
   @IsOptional()
   @IsString()
@@ -31,7 +30,6 @@ export class QueryVenueDto {
   @ApiProperty({
     description: 'Filter by city (partial match)',
     required: false,
-    example: 'São Paulo',
   })
   @IsOptional()
   @IsString()
@@ -40,7 +38,6 @@ export class QueryVenueDto {
   @ApiProperty({
     description: 'Filter by state (UF)',
     required: false,
-    example: 'SP',
   })
   @IsOptional()
   @IsString()
@@ -49,7 +46,6 @@ export class QueryVenueDto {
   @ApiProperty({
     description: 'Minimum capacity filter',
     required: false,
-    example: 1000,
   })
   @Type(() => Number)
   @IsInt()
@@ -59,7 +55,6 @@ export class QueryVenueDto {
   @ApiProperty({
     description: 'Maximum capacity filter',
     required: false,
-    example: 100000,
   })
   @Type(() => Number)
   @IsInt()

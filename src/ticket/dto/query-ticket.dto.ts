@@ -42,7 +42,6 @@ export class QueryTicketDto {
   @ApiProperty({
     description: 'Filter by ticket code (partial match)',
     required: false,
-    example: 'TKT-ABC',
   })
   @IsString()
   @IsOptional()

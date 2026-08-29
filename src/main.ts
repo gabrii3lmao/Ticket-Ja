@@ -12,7 +12,6 @@ async function bootstrap() {
   const app = (await NestFactory.create(AppModule)).setGlobalPrefix('api');
   const configService = app.get(ConfigService);
   const enviroment = configService.get<string>('NODE_ENV');
-
   const config = new DocumentBuilder()
     .setTitle('Ticket Já API')
     .setDescription(
