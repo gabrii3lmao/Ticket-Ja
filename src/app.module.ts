@@ -27,7 +27,6 @@ import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis'
       isGlobal: true,
       useFactory: (configService: ConfigService) => {
         const redisUrl = configService.get<string>('REDIS_URL');
-
         return {
           stores: [createKeyv(redisUrl)],
           ttl: 60000,

@@ -9,7 +9,7 @@ import { PrismaService } from 'src/prisma.service';
 import { ApiKeyGuard } from './guards/api-key.guard';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
-
+import { RedisHealthIndicator } from './indicators/redis-health.indicator';
 @ApiTags('health')
 @Controller('health')
 @UseGuards(ApiKeyGuard)
@@ -18,6 +18,7 @@ export class HealthController {
     private health: HealthCheckService,
     private prismaIndicator: PrismaHealthIndicator,
     private prisma: PrismaService,
+    private redisIndicator: RedisHealthIndicator,
   ) {}
 
   @Get()
@@ -29,6 +30,7 @@ export class HealthController {
   check() {
     return this.health.check([
       () => this.prismaIndicator.pingCheck('database', this.prisma),
+      () => this.redisIndicator.isHealthy(),
     ]);
   }
 }
