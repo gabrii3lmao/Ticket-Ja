@@ -15,6 +15,10 @@ const mockAdminService = {
   listOrganizerApplications: jest.fn(),
   approveOrganizerApplication: jest.fn(),
   rejectOrganizerApplication: jest.fn(),
+  listOrders: jest.fn(),
+  getOrderDetail: jest.fn(),
+  confirmPayment: jest.fn(),
+  rejectPayment: jest.fn(),
 };
 
 describe('AdminController', () => {
@@ -39,43 +43,103 @@ describe('AdminController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('should list organizer applications with query', async () => {
-    const query = { status: 'PENDING' as const };
-    const expected = { data: [], meta: {} };
+  describe('organizer applications', () => {
+    it('should list organizer applications with query', async () => {
+      const query = { status: 'PENDING' as const };
+      const expected = { data: [], meta: {} };
 
-    adminService.listOrganizerApplications.mockResolvedValue(expected);
+      adminService.listOrganizerApplications.mockResolvedValue(expected);
 
-    const result = await controller.listOrganizerSummary(query);
+      const result = await controller.listOrganizerSummary(query);
 
-    expect(adminService.listOrganizerApplications).toHaveBeenCalledWith(query);
-    expect(result).toEqual(expected);
+      expect(adminService.listOrganizerApplications).toHaveBeenCalledWith(
+        query,
+      );
+      expect(result).toEqual(expected);
+    });
+
+    it('should approve an organizer application', async () => {
+      const expected = { id: 'profile-1' };
+
+      adminService.approveOrganizerApplication.mockResolvedValue(expected);
+
+      const result = await controller.approveOrganizerApplication('app-1');
+
+      expect(adminService.approveOrganizerApplication).toHaveBeenCalledWith(
+        'app-1',
+      );
+      expect(result).toEqual(expected);
+    });
+
+    it('should reject an organizer application with reason', async () => {
+      const dto = { rejectReason: 'Invalid document' };
+      const expected = { id: 'app-1', status: 'REJECTED' };
+
+      adminService.rejectOrganizerApplication.mockResolvedValue(expected);
+
+      const result = await controller.rejectOrganizerApplication('app-1', dto);
+
+      expect(adminService.rejectOrganizerApplication).toHaveBeenCalledWith(
+        'app-1',
+        dto,
+      );
+      expect(result).toEqual(expected);
+    });
   });
 
-  it('should approve an organizer application', async () => {
-    const expected = { id: 'profile-1' };
+  describe('payment management', () => {
+    it('should list orders with query', async () => {
+      const query = { status: 'PENDING' as const };
+      const expected = { data: [], meta: {} };
 
-    adminService.approveOrganizerApplication.mockResolvedValue(expected);
+      adminService.listOrders.mockResolvedValue(expected);
 
-    const result = await controller.approveOrganizerApplication('app-1');
+      const result = await controller.listOrders(query);
 
-    expect(adminService.approveOrganizerApplication).toHaveBeenCalledWith(
-      'app-1',
-    );
-    expect(result).toEqual(expected);
-  });
+      expect(adminService.listOrders).toHaveBeenCalledWith(query);
+      expect(result).toEqual(expected);
+    });
 
-  it('should reject an organizer application with reason', async () => {
-    const dto = { rejectReason: 'Invalid document' };
-    const expected = { id: 'app-1', status: 'REJECTED' };
+    it('should find order detail', async () => {
+      const expected = { id: 'ord-1', orderItems: [], payment: {} };
 
-    adminService.rejectOrganizerApplication.mockResolvedValue(expected);
+      adminService.getOrderDetail.mockResolvedValue(expected);
 
-    const result = await controller.rejectOrganizerApplication('app-1', dto);
+      const result = await controller.findOrder('ord-1');
 
-    expect(adminService.rejectOrganizerApplication).toHaveBeenCalledWith(
-      'app-1',
-      dto,
-    );
-    expect(result).toEqual(expected);
+      expect(adminService.getOrderDetail).toHaveBeenCalledWith('ord-1');
+      expect(result).toEqual(expected);
+    });
+
+    it('should confirm payment', async () => {
+      adminService.confirmPayment.mockResolvedValue(undefined);
+
+      await controller.confirmPayment('ord-1');
+
+      expect(adminService.confirmPayment).toHaveBeenCalledWith('ord-1');
+    });
+
+    it('should reject payment with reason', async () => {
+      const dto = { reason: 'Insufficient proof' };
+      adminService.rejectPayment.mockResolvedValue(undefined);
+
+      await controller.rejectPayment('ord-1', dto);
+
+      expect(adminService.rejectPayment).toHaveBeenCalledWith(
+        'ord-1',
+        'Insufficient proof',
+      );
+    });
+
+    it('should reject payment without reason', async () => {
+      adminService.rejectPayment.mockResolvedValue(undefined);
+
+      await controller.rejectPayment('ord-1', {});
+
+      expect(adminService.rejectPayment).toHaveBeenCalledWith(
+        'ord-1',
+        undefined,
+      );
+    });
   });
 });

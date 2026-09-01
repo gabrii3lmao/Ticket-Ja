@@ -2,17 +2,10 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
-  BadGatewayException,
 } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { PrismaService } from 'src/prisma.service';
-import {
-  Category,
-  PaymentMethod,
-  PaymentProvider,
-  PaymentStatus,
-  Prisma,
-} from 'generated/prisma/client';
+import { Category, PaymentStatus, Prisma } from 'generated/prisma/client';
 import {
   Decimal,
   PrismaClientKnownRequestError,
@@ -23,7 +16,6 @@ import { PaymentService } from 'src/payment/payment.service';
 @Injectable()
 export class OrderService {
   private readonly FEE_RATE = new Decimal('0.05');
-  private readonly PIX_EXPIRATION_MS = 30 * 60 * 1000; // 30 min
   constructor(
     private prisma: PrismaService,
     private paymentService: PaymentService,
@@ -51,8 +43,6 @@ export class OrderService {
         data: {
           orderId: order.id,
           amount: order.total,
-          provider: PaymentProvider.ASAAS,
-          paymentMethod: PaymentMethod.PIX,
           status: PaymentStatus.PENDING,
         },
       });
@@ -60,38 +50,7 @@ export class OrderService {
       return { order, payment };
     });
 
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-
-    if (!user) throw new NotFoundException('User not found');
-
-    try {
-      const { externalId: customerExternalId } =
-        await this.paymentService.ensureGatewayCustomer(userId, {
-          name: user.name,
-          email: user.email,
-          taxId: user.taxId ?? undefined,
-        });
-
-      const charge = await this.paymentService.createPayment({
-        customerExternalId,
-        amount: order.total.toNumber(),
-        method: PaymentMethod.PIX,
-        dueDate: this.pixDueDate(),
-      }); // now + 30min}
-
-      const updatedPayment = await this.prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          externalId: charge.externalId,
-          providerData: charge.providerData as Prisma.InputJsonValue,
-          dueDate: charge.dueDate,
-          status: charge.status,
-        },
-      });
-      return { ...order, payment: updatedPayment };
-    } catch (error) {
-      throw new BadGatewayException('Payment gateway unavailable');
-    }
+    return { order, payment };
   }
 
   private async reserveAndValidateStock(
@@ -249,10 +208,5 @@ export class OrderService {
         },
       },
     });
-  }
-
-  private pixDueDate() {
-    const now = new Date();
-    return new Date(now.getTime() + this.PIX_EXPIRATION_MS);
   }
 }

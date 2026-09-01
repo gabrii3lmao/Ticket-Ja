@@ -80,9 +80,6 @@ async function main() {
   console.log('--- Cleaning database ---');
   await prisma.$transaction([
     prisma.ticket.deleteMany(),
-    prisma.paymentWebhookEvent.deleteMany(),
-    prisma.gatewayCustomer.deleteMany(),
-    prisma.paymentAccount.deleteMany(),
     prisma.payment.deleteMany(),
     prisma.orderItem.deleteMany(),
     prisma.order.deleteMany(),
@@ -136,7 +133,7 @@ async function main() {
 
   const buyerEmails = new Set<string>();
   const buyers = await Promise.all(
-    Array.from({ length: 7 }, async (_, i) => {
+    Array.from({ length: 7 }, async () => {
       let email: string;
       do {
         email = faker.internet.email().toLowerCase();
@@ -470,51 +467,6 @@ async function main() {
 
   console.log(`Coupons: ${coupons.map((c) => c.code).join(', ')}`);
 
-  // ── Gateway Customers ──────────────────────────────────────
-  console.log('--- Creating gateway customers ---');
-
-  const gatewayCustomers = await Promise.all(
-    buyers.slice(0, 3).map((buyer) =>
-      prisma.gatewayCustomer.create({
-        data: {
-          customerId: `cus_${faker.string.alphanumeric(14)}`,
-          provider: faker.helpers.arrayElement([
-            'STRIPE',
-            'MERCADO_PAGO',
-            'ASAAS',
-          ]),
-          userId: buyer.id,
-        },
-      }),
-    ),
-  );
-
-  console.log(`Gateway customers: ${gatewayCustomers.length}`);
-
-  // ── Payment Accounts ───────────────────────────────────────
-  console.log('--- Creating payment accounts ---');
-
-  const paymentAccounts = await Promise.all([
-    prisma.paymentAccount.create({
-      data: {
-        provider: 'ASAAS',
-        accountId: `acc_${faker.string.alphanumeric(10)}`,
-        isDefault: true,
-        organizerProfileId: organizerProfile.id,
-      },
-    }),
-    prisma.paymentAccount.create({
-      data: {
-        provider: 'MERCADO_PAGO',
-        accountId: `acc_${faker.string.alphanumeric(10)}`,
-        isDefault: true,
-        organizerProfileId: organizerProfile2.id,
-      },
-    }),
-  ]);
-
-  console.log(`Payment accounts: ${paymentAccounts.length}`);
-
   // ── Orders ─────────────────────────────────────────────────
   console.log('--- Creating orders ---');
 
@@ -560,11 +512,9 @@ async function main() {
 
   await prisma.payment.create({
     data: {
-      provider: 'ASAAS',
-      paymentMethod: 'PIX',
       amount: order1.total,
       status: 'APPROVED',
-      paidAt: new Date(),
+      confirmedAt: new Date(),
       orderId: order1.id,
     },
   });
@@ -627,8 +577,6 @@ async function main() {
 
   await prisma.payment.create({
     data: {
-      provider: 'MERCADO_PAGO',
-      paymentMethod: 'CREDIT_CARD',
       amount: order2.total,
       status: 'PENDING',
       orderId: order2.id,
@@ -639,7 +587,7 @@ async function main() {
     `Order #2: ${buyers[1].email} → ${events[1].name} (${categories[2].name} ×1 + ${categories[3].name} ×1) = $${Number(order2.total).toFixed(2)} [PENDING/PENDING]`,
   );
 
-  // Order #3: Ana → Carnaval Pista ×1 (CANCELED / REFUNDED)
+  // Order #3: Ana → Carnaval Pista ×1 (CANCELED / REJECTED)
   const o3Amounts = [{ unitPrice: categories[0].price, quantity: 1 }];
   const o3 = calcOrder(o3Amounts);
 
@@ -674,20 +622,19 @@ async function main() {
 
   await prisma.payment.create({
     data: {
-      provider: 'ASAAS',
-      paymentMethod: 'PIX',
       amount: order3.total,
-      status: 'REFUNDED',
-      paidAt: new Date(Date.now() - 86400000),
+      status: 'REJECTED',
+      rejectedAt: new Date(Date.now() - 86400000),
+      rejectReason: 'Pagamento não comprovado',
       orderId: order3.id,
     },
   });
 
   console.log(
-    `Order #3: ${buyers[0].email} → ${events[0].name} (${categories[0].name} ×1) = $${Number(order3.total).toFixed(2)} [CANCELED/REFUNDED]`,
+    `Order #3: ${buyers[0].email} → ${events[0].name} (${categories[0].name} ×1) = $${Number(order3.total).toFixed(2)} [CANCELED/REJECTED]`,
   );
 
-  // Order #4: João → Rock Underground Inteira ×3 (PENDING / FAILED)
+  // Order #4: João → Rock Underground Inteira ×3 (PENDING)
   const o4Amounts = [{ unitPrice: categories[5].price, quantity: 3 }];
   const o4 = calcOrder(o4Amounts);
 
@@ -738,16 +685,14 @@ async function main() {
 
   await prisma.payment.create({
     data: {
-      provider: 'PAGSEGURO',
-      paymentMethod: 'BOLETO',
       amount: order4.total,
-      status: 'FAILED',
+      status: 'PENDING',
       orderId: order4.id,
     },
   });
 
   console.log(
-    `Order #4: ${buyers[1].email} → ${events[2].name} (${categories[5].name} ×3) = $${Number(order4.total).toFixed(2)} [PENDING/FAILED]`,
+    `Order #4: ${buyers[1].email} → ${events[2].name} (${categories[5].name} ×3) = $${Number(order4.total).toFixed(2)} [PENDING/PENDING]`,
   );
 
   // ── Additional Orders (random) ────────────────────────────
@@ -764,7 +709,7 @@ async function main() {
       const amounts = [{ unitPrice: cat.price, quantity: qty }];
       const { subtotal, fee, total } = calcOrder(amounts);
 
-      const tickets = Array.from({ length: qty }, (_, i) => {
+      const tickets = Array.from({ length: qty }, () => {
         const code = ticketCode();
         return {
           code,
@@ -780,13 +725,18 @@ async function main() {
         };
       });
 
+      const orderStatus = faker.helpers.arrayElement([
+        'PAID',
+        'PAID',
+        'PENDING',
+      ]);
       const order = await prisma.order.create({
         data: {
           userId: buyer.id,
           subtotal,
           fee,
           total,
-          status: faker.helpers.arrayElement(['PAID', 'PAID', 'PENDING']),
+          status: orderStatus,
           orderItems: {
             create: {
               quantity: qty,
@@ -803,27 +753,32 @@ async function main() {
       const paymentStatus =
         order.status === 'PAID'
           ? 'APPROVED'
-          : faker.helpers.arrayElement(['PENDING', 'PENDING', 'FAILED']);
+          : faker.helpers.arrayElement(['PENDING', 'PENDING', 'REJECTED']);
       await prisma.payment.create({
         data: {
-          provider: faker.helpers.arrayElement([
-            'ASAAS',
-            'MERCADO_PAGO',
-            'PAGSEGURO',
-          ]),
-          paymentMethod: faker.helpers.arrayElement([
-            'PIX',
-            'CREDIT_CARD',
-            'BOLETO',
-          ]),
           amount: order.total,
           status: paymentStatus,
-          paidAt:
+          confirmedAt:
             paymentStatus === 'APPROVED'
               ? new Date(
                   Date.now() -
                     faker.number.int({ min: 1, max: 7 }) * 86_400_000,
                 )
+              : undefined,
+          rejectedAt:
+            paymentStatus === 'REJECTED'
+              ? new Date(
+                  Date.now() -
+                    faker.number.int({ min: 1, max: 7 }) * 86_400_000,
+                )
+              : undefined,
+          rejectReason:
+            paymentStatus === 'REJECTED'
+              ? faker.helpers.arrayElement([
+                  'Pagamento não comprovado',
+                  'Comprovante ilegível',
+                  'Valor não confere',
+                ])
               : undefined,
           orderId: order.id,
         },
@@ -850,8 +805,6 @@ async function main() {
     prisma.orderItem.count(),
     prisma.ticket.count(),
     prisma.payment.count(),
-    prisma.gatewayCustomer.count(),
-    prisma.paymentAccount.count(),
   ]);
 
   console.log('\n=== Seed Summary ===');
@@ -866,8 +819,6 @@ async function main() {
   console.log(`Order Items:         ${counts[8]}`);
   console.log(`Tickets:             ${counts[9]}`);
   console.log(`Payments:            ${counts[10]}`);
-  console.log(`Gateway Customers:   ${counts[11]}`);
-  console.log(`Payment Accounts:    ${counts[12]}`);
   console.log('\nSeed completed successfully');
 }
 

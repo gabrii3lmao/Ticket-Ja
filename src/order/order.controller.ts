@@ -26,7 +26,7 @@ export class OrderController {
   @ApiResponse({
     status: 201,
     description:
-      'Order created successfully. Returns the order plus `payment` with ASAAS PIX data (externalId, providerData, dueDate)',
+      'Order created successfully with payment in PENDING status awaiting admin confirmation',
   })
   @ApiResponse({
     status: 400,
@@ -34,11 +34,6 @@ export class OrderController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'User or category not found' })
-  @ApiResponse({
-    status: 502,
-    description:
-      'Payment gateway unavailable — order stays pending, stock released by the expiry job',
-  })
   create(
     @Body() dto: CreateOrderDto,
     @CurrentUser(ActiveUserPipe) user: UserPayload,

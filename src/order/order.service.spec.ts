@@ -32,24 +32,9 @@ class PrismaClientKnownRequestError extends Error {
 jest.mock('generated/prisma/client', () => ({
   Prisma: { Decimal: mockDecimal },
   PrismaClient: class {},
-  PaymentProvider: {
-    ASAAS: 'ASAAS',
-    STRIPE: 'STRIPE',
-    MERCADO_PAGO: 'MERCADO_PAGO',
-    PAGSEGURO: 'PAGSEGURO',
-  },
-  PaymentMethod: {
-    PIX: 'PIX',
-    CREDIT_CARD: 'CREDIT_CARD',
-    DEBIT_CARD: 'DEBIT_CARD',
-    BOLETO: 'BOLETO',
-  },
-  PaymentStatus: {
-    PENDING: 'PENDING',
-    APPROVED: 'APPROVED',
-    FAILED: 'FAILED',
-    REFUNDED: 'REFUNDED',
-  },
+  PaymentStatus: { PENDING: 'PENDING', APPROVED: 'APPROVED', REJECTED: 'REJECTED' },
+  OrderStatus: { PENDING: 'PENDING', PAID: 'PAID', CANCELED: 'CANCELED' },
+  TicketStatus: { VALID: 'VALID', USED: 'USED', CANCELED: 'CANCELED' },
 }));
 
 jest.mock('generated/prisma/internal/prismaNamespace', () => ({
@@ -58,11 +43,7 @@ jest.mock('generated/prisma/internal/prismaNamespace', () => ({
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  BadGatewayException,
-  BadRequestException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { OrderService } from './order.service';
 import { PrismaService } from 'src/prisma.service';
 import { PaymentService } from 'src/payment/payment.service';
@@ -81,19 +62,10 @@ const mockTx = {
 };
 
 const mockPrisma = {
-  user: {
-    findUnique: jest.fn(),
-  },
-  payment: {
-    update: jest.fn(),
-  },
   $transaction: jest.fn(),
 };
 
-const paymentServiceMock = {
-  ensureGatewayCustomer: jest.fn(),
-  createPayment: jest.fn(),
-};
+const paymentServiceMock = {};
 
 const userId = 'user-uuid';
 
@@ -142,28 +114,6 @@ describe('OrderService', () => {
     mockPrisma.$transaction.mockImplementation(
       (cb: (tx: typeof mockTx) => Promise<unknown>) => cb(mockTx),
     );
-    mockPrisma.user.findUnique.mockResolvedValue({
-      id: userId,
-      name: 'John Doe',
-      email: 'john@email.com',
-      taxId: null,
-    });
-    mockPrisma.payment.update.mockResolvedValue({
-      id: 'pay-uuid',
-      externalId: 'pay_test',
-      providerData: { pixCopiaECola: '000201...' },
-      dueDate: new Date(),
-      status: 'PENDING',
-    });
-    paymentServiceMock.ensureGatewayCustomer.mockResolvedValue({
-      externalId: 'cus_test',
-    });
-    paymentServiceMock.createPayment.mockResolvedValue({
-      externalId: 'pay_test',
-      status: 'PENDING',
-      providerData: { pixCopiaECola: '000201...' },
-      dueDate: new Date(),
-    });
   });
 
   afterEach(() => {
@@ -202,7 +152,6 @@ describe('OrderService', () => {
             ],
           },
         ],
-        payments: [],
       };
       mockTx.order.create.mockResolvedValue(fakeOrder);
       mockTx.payment.create.mockResolvedValue({ id: 'pay-uuid' });
@@ -223,18 +172,13 @@ describe('OrderService', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             orderId: 'order-uuid',
-            provider: 'ASAAS',
-            paymentMethod: 'PIX',
             status: 'PENDING',
           }),
         }),
       );
       expect(result).toEqual({
-        ...fakeOrder,
-        payment: expect.objectContaining({
-          id: 'pay-uuid',
-          externalId: 'pay_test',
-        }),
+        order: fakeOrder,
+        payment: { id: 'pay-uuid' },
       });
     });
 
@@ -379,8 +323,8 @@ describe('OrderService', () => {
       });
       expect(mockTx.category.update).toHaveBeenCalledTimes(2);
       expect(result).toEqual({
-        ...fakeOrder,
-        payment: expect.objectContaining({ externalId: 'pay_test' }),
+        order: fakeOrder,
+        payment: { id: 'pay-uuid' },
       });
     });
 
@@ -460,7 +404,7 @@ describe('OrderService', () => {
       mockTx.payment.create.mockResolvedValue({ id: 'pay-uuid' });
 
       const result = (await service.create(createDto, userId)) as any;
-      expect(result.orderItems[0].tickets).toHaveLength(2);
+      expect(result.order.orderItems[0].tickets).toHaveLength(2);
     });
 
     it('should round fee to 2 decimal places and keep total consistent', async () => {
@@ -614,92 +558,6 @@ describe('OrderService', () => {
       expect(mockTx.category.update).toHaveBeenCalledTimes(2);
       expect(mockTx.order.create).not.toHaveBeenCalled();
       expect(mockTx.payment.create).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('create - payment gateway integration', () => {
-    it('should call the gateway and attach the payment with provider data', async () => {
-      mockTx.category.findMany.mockResolvedValue([baseCategory]);
-      mockTx.category.update.mockResolvedValue({
-        ...baseCategory,
-        quantity: 98,
-      });
-      mockTx.order.create.mockResolvedValue({
-        id: 'order-uuid',
-        subtotal: 500,
-        discount: 0,
-        fee: 25,
-        total: new mockDecimal(525),
-        orderItems: [],
-      });
-      mockTx.payment.create.mockResolvedValue({ id: 'pay-uuid' });
-
-      const result = (await service.create(createDto, userId)) as {
-        payment: { externalId: string | null };
-      };
-
-      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
-        where: { id: userId },
-      });
-      expect(paymentServiceMock.ensureGatewayCustomer).toHaveBeenCalledWith(
-        userId,
-        {
-          name: 'John Doe',
-          email: 'john@email.com',
-          taxId: undefined,
-        },
-      );
-      expect(paymentServiceMock.createPayment).toHaveBeenCalledWith(
-        expect.objectContaining({
-          customerExternalId: 'cus_test',
-          amount: 525,
-          method: 'PIX',
-        }),
-      );
-      expect(mockPrisma.payment.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: 'pay-uuid' },
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-          data: expect.objectContaining({
-            externalId: 'pay_test',
-            status: 'PENDING',
-          }),
-        }),
-      );
-      expect(result.payment.externalId).toBe('pay_test');
-    });
-
-    it('should throw NotFoundException when the user does not exist', async () => {
-      mockTx.category.findMany.mockResolvedValue([baseCategory]);
-      mockTx.category.update.mockResolvedValue({
-        ...baseCategory,
-        quantity: 98,
-      });
-      mockTx.order.create.mockResolvedValue({ id: 'order-uuid' });
-      mockTx.payment.create.mockResolvedValue({ id: 'pay-uuid' });
-      mockPrisma.user.findUnique.mockResolvedValue(null);
-
-      await expect(service.create(createDto, userId)).rejects.toThrow(
-        NotFoundException,
-      );
-      expect(paymentServiceMock.ensureGatewayCustomer).not.toHaveBeenCalled();
-    });
-
-    it('should throw BadGatewayException when the gateway fails', async () => {
-      mockTx.category.findMany.mockResolvedValue([baseCategory]);
-      mockTx.category.update.mockResolvedValue({
-        ...baseCategory,
-        quantity: 98,
-      });
-      mockTx.order.create.mockResolvedValue({ id: 'order-uuid' });
-      mockTx.payment.create.mockResolvedValue({ id: 'pay-uuid' });
-      paymentServiceMock.ensureGatewayCustomer.mockRejectedValue(
-        new Error('gateway down'),
-      );
-
-      await expect(service.create(createDto, userId)).rejects.toThrow(
-        BadGatewayException,
-      );
     });
   });
 });

@@ -13,7 +13,6 @@ import { OrderModule } from './order/order.module';
 import { TicketModule } from './ticket/ticket.module';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { PaymentModule } from './payment/payment.module';
-import { ScheduleModule } from '@nestjs/schedule';
 import { AdminModule } from './admin/admin.module';
 import { CacheModule } from '@nestjs/cache-manager';
 import { createKeyv } from '@keyv/redis';
@@ -48,7 +47,6 @@ import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis'
         ),
       }),
     }),
-    ScheduleModule.forRoot(),
     PrismaModule,
     UserModule,
     EventModule,

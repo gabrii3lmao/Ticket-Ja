@@ -22,7 +22,6 @@ model User {
   orders              Order[]
   tickets             Ticket[]
   organizerProfiles   OrganizerProfile?
-  gatewayCustomers    GatewayCustomer[]
   organizerAplication OrganizerAplication?
   refreshTokens       RefreshToken[]
 }
@@ -39,9 +38,8 @@ model OrganizerProfile {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id])
 
-  venues          Venue[]
-  events          Event[]
-  paymentAccounts PaymentAccount[]
+  venues Venue[]
+  events Event[]
 }
 
 model OrganizerAplication {
@@ -133,7 +131,6 @@ model Order {
   total      Decimal     @db.Decimal(10, 2)
   status     OrderStatus @default(PENDING)
   orderItems OrderItem[]
-  payments   Payment[]
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
 
@@ -141,7 +138,8 @@ model Order {
   user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   couponId String?
-  coupon   Coupon? @relation(fields: [couponId], references: [id])
+  coupon   Coupon?  @relation(fields: [couponId], references: [id])
+  payment  Payment?
 
   @@index([userId])
   @@index([status])
@@ -188,68 +186,19 @@ model Ticket {
 }
 
 model Payment {
-  id            String          @id @default(uuid())
-  provider      PaymentProvider
-  paymentMethod PaymentMethod
-  externalId    String?         @db.VarChar(255)
-  amount        Decimal         @db.Decimal(10, 2)
-  status        PaymentStatus   @default(PENDING)
-  paidAt        DateTime?
-  providerData  Json?
-  dueDate       DateTime?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id           String        @id @default(uuid())
+  amount       Decimal       @db.Decimal(10, 2)
+  status       PaymentStatus @default(PENDING)
+  confirmedAt  DateTime?
+  rejectedAt   DateTime?
+  rejectReason String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
-  orderId String
+  orderId String @unique
   order   Order  @relation(fields: [orderId], references: [id], onDelete: Restrict)
 
   @@index([orderId])
-  @@index([provider, externalId])
-}
-
-model PaymentAccount {
-  id        String          @id @default(uuid())
-  provider  PaymentProvider
-  accountId String
-  isDefault Boolean         @default(true)
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-
-  organizerProfileId String
-  organizerProfile   OrganizerProfile @relation(fields: [organizerProfileId], references: [id])
-
-  // impede duplicações
-  @@unique([organizerProfileId, provider])
-  @@index([organizerProfileId])
-  @@index([provider])
-}
-
-model GatewayCustomer {
-  id         String          @id @default(uuid())
-  customerId String
-  provider   PaymentProvider
-  createdAt  DateTime        @default(now())
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
-
-  @@unique([userId, provider])
-  @@index([userId])
-  @@index([provider])
-}
-
-model PaymentWebhookEvent {
-  id          String          @id @default(uuid())
-  provider    PaymentProvider
-  eventId     String
-  eventType   String
-  payload     Json
-  processedAt DateTime?
-  createdAt   DateTime        @default(now())
-
-  @@unique([provider, eventId])
-  @@index([provider])
-  @@index([eventId])
 }
 
 model Coupon {
@@ -292,7 +241,6 @@ enum OrderStatus {
   PENDING
   PAID
   CANCELED
-  REFUNDED
 }
 
 enum TicketStatus {
@@ -302,24 +250,9 @@ enum TicketStatus {
 }
 
 enum PaymentStatus {
-  PENDING
   APPROVED
-  FAILED
-  REFUNDED
-}
-
-enum PaymentProvider {
-  STRIPE
-  MERCADO_PAGO
-  ASAAS
-  PAGSEGURO
-}
-
-enum PaymentMethod {
-  PIX
-  CREDIT_CARD
-  DEBIT_CARD
-  BOLETO
+  PENDING
+  REJECTED
 }
 
 enum DiscountType {

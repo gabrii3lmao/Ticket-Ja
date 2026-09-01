@@ -14,9 +14,9 @@ src/
 ├── event/          # Event lifecycle (DRAFT → PUBLISHED), ownership, pagination
 ├── category/       # Ticket categories with pricing and stock control
 ├── order/          # Purchase flow with atomic stock reservation
-├── payment/        # Gateway abstraction (ASAAS/PIX), webhooks, expiry job
+├── payment/        # Payment confirmation service (manual admin flow)
 ├── ticket/         # QR code validation, usage tracking
-├── admin/          # Organizer application review (ADMIN only)
+├── admin/          # Organizer application review + payment confirmation (ADMIN only)
 ├── health/         # Health check endpoint (Prisma + Terminus)
 └── common/         # Shared filters, pipes, and utilities
 ```
@@ -24,9 +24,8 @@ src/
 **Key design decisions:**
 
 - **Global guards** — JWT authentication and role-based access are enforced globally via `APP_GUARD`. Routes opt-out with `@Public()`.
-- **Strategy pattern** — Payment providers (ASAAS, Mercado Pago, etc.) implement a common interface, making gateway swaps trivial.
 - **Atomic stock control** — Order creation uses Prisma's atomic `decrement` with optimistic locking (`WHERE quantity >= requested`) to prevent overselling under concurrency.
-- **Idempotent webhooks** — ASAAS webhook handler deduplicates events by `payment.id + event` to safely handle retries.
+- **Manual payment confirmation** — Payments are verified manually by administrators through the admin panel. No external payment gateways are integrated.
 - **Cache layer** — Redis-backed cache on read-heavy endpoints (events, venues, categories) with per-method interceptor control.
 - **Rate limiting** — Multi-tier throttling (short/medium/long) via `@nestjs/throttler` with Redis storage, stricter limits on auth and order endpoints.
 
@@ -40,7 +39,7 @@ src/
 | Database | PostgreSQL 15 |
 | Cache / Rate-limit store | Redis 7.4 |
 | Auth | JWT (passport-jwt) with refresh tokens |
-| Payments | ASAAS (PIX) via Strategy pattern |
+| Payments | Manual admin confirmation (no gateway) |
 | API Docs | Swagger/OpenAPI at `/docs` |
 | Testing | Jest 30 (unit) + Supertest (e2e) |
 | Container | Docker multi-stage + Docker Compose |
@@ -79,7 +78,7 @@ The seed populates the database with realistic test data using Faker:
 - **Events** — 5 events (3 published, 2 draft) with mixed organizers and venues
 - **Categories** — 9 ticket categories across events (Pista, VIP, Arquibancada, Camarote, etc.) with varying prices and stock
 - **Coupons** — 3 coupons (percentage and fixed discounts, with expiry dates)
-- **Orders** — 8 orders in different states (PAID, PENDING, CANCELED) with corresponding payments (APPROVED, PENDING, FAILED, REFUNDED) and tickets
+- **Orders** — 8 orders in different states (PAID, PENDING, CANCELED) with corresponding payments (APPROVED, PENDING, REJECTED) and tickets
 
 Default credentials: `admin@email.com` / `organizer@email.com` / `maria@email.com` — password: `123456`
 
@@ -93,18 +92,18 @@ All endpoints are documented in Swagger at `/api`. The API is organized into the
 - **Category** — CRUD nested under events, with pricing and stock control
 - **Order** — Ticket purchase with atomic stock reservation
 - **Ticket** — QR code validation, listing, usage tracking
-- **Payment** — ASAAS webhook for payment confirmation
-- **Admin** — Organizer application review (ADMIN only)
+- **Admin** — Organizer application review + payment confirmation (ADMIN only)
 - **Health** — Service health check with Prisma ping
 
-## Payments (ASAAS / PIX)
+## Payments (Manual Confirmation)
 
-The payment flow is designed for resilience:
+The payment flow is designed for simplicity and manual control:
 
-1. `POST /order` reserves stock atomically, then calls the ASAAS gateway **outside** the transaction.
-2. If the gateway is down, the API returns `502` — the order stays `PENDING` and the expiry job handles cleanup.
-3. ASAAS webhook (`/api/payments/webhook/asaas`) confirms payment, marks the order as `PAID`, and releases tickets.
-4. A scheduled job (every 5 minutes) expires `PENDING` payments older than 30 minutes, cancels the order, and restores stock.
+1. `POST /order` reserves stock atomically and creates a payment record in `PENDING` status.
+2. The order appears in the admin panel (`GET /admin/payments-requests`).
+3. The administrator verifies the payment manually (e.g., bank transfer, PIX confirmation).
+4. The administrator confirms (`PATCH /admin/payments-requests/:id/confirm`) or rejects (`PATCH /admin/payments-requests/:id/reject`) the payment.
+5. Confirmation marks the order as `PAID`. Rejection cancels the order, releases stock, and cancels tickets.
 
 ## Environment Variables
 
@@ -115,9 +114,6 @@ DATABASE_URL=         # PostgreSQL connection string
 REDIS_URL=            # Redis connection string (cache + rate-limit store)
 JWT_SECRET=           # Access token signing key
 JWT_REFRESH_SECRET=   # Refresh token signing key
-ASAAS_API_KEY=        # ASAAS sandbox/prod API key
-ASAAS_BASE_URL=       # e.g. https://sandbox.asaas.com/api/v3
-ASAAS_WEBHOOK_TOKEN=  # Secret for incoming webhook authentication
 ```
 
 ## Scripts

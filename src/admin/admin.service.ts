@@ -5,12 +5,22 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
 import { QueryOrganizerApplication } from './dto/query-organizer-application.dto';
-import { Prisma, Role } from 'generated/prisma/client';
+import {
+  OrderStatus,
+  PaymentStatus,
+  Prisma,
+  Role,
+} from 'generated/prisma/client';
 import { RejectReasonDto } from './dto/rejected-reason.dto';
+import { QueryOrderDto } from './dto/query-order.dto';
+import { PaymentService } from 'src/payment/payment.service';
 
 @Injectable()
 export class AdminService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private paymentService: PaymentService,
+  ) {}
 
   async listOrganizerApplications(query: QueryOrganizerApplication) {
     const {
@@ -114,5 +124,85 @@ export class AdminService {
       where: { id },
       data: { status: 'REJECTED', rejectedReason: dto.rejectReason },
     });
+  }
+
+  async listOrders(query: QueryOrderDto) {
+    const {
+      limit = 10,
+      page = 1,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      status = 'PENDING',
+    } = query;
+
+    const skip = (page - 1) * limit;
+    const orderBy = { [sortBy]: sortOrder };
+
+    const [data, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where: { status },
+        skip,
+        orderBy,
+      }),
+      this.prisma.order.count({ where: { status } }),
+    ]);
+
+    return {
+      data,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  async getOrderDetail(id: string) {
+    return this.prisma.order.findUnique({
+      where: { id },
+      include: {
+        orderItems: true,
+        payment: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            taxId: true,
+            phone: true,
+          },
+        },
+      },
+    });
+  }
+
+  async confirmPayment(orderId: string) {
+    const payment = await this.prisma.payment.findUnique({
+      where: { orderId },
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Payment not found');
+    }
+
+    return this.paymentService.markOrderPaid(orderId, payment.id);
+  }
+
+  async rejectPayment(orderId: string, reason?: string) {
+    const payment = await this.prisma.payment.findUnique({
+      where: { orderId },
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Payment not found');
+    }
+
+    await this.prisma.payment.update({
+      where: { orderId },
+      data: { rejectReason: reason, rejectedAt: new Date() },
+    });
+
+    return this.paymentService.releaseOrder(
+      orderId,
+      payment.id,
+      PaymentStatus.REJECTED,
+      OrderStatus.CANCELED,
+    );
   }
 }

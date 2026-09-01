@@ -1,79 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { PaymentProviderFactory } from './strategy/payment-provider.factory';
 import {
   OrderStatus,
-  PaymentProvider,
   PaymentStatus,
   TicketStatus,
 } from 'generated/prisma/enums';
-import { CreateCustomerInput } from './interfaces/dto/create-customer.dto';
-import { CreatePaymentInput } from './interfaces/dto/create-payment.dto';
 import { PrismaService } from 'src/prisma.service';
-import { PrismaClientKnownRequestError } from 'generated/prisma/internal/prismaNamespace';
 
 @Injectable()
 export class PaymentService {
-  constructor(
-    private readonly factory: PaymentProviderFactory,
-    private readonly prisma: PrismaService,
-  ) {}
-
-  private provider(provider: PaymentProvider = PaymentProvider.ASAAS) {
-    return this.factory.getProvider(provider);
-  }
-
-  createCustomer(input: CreateCustomerInput) {
-    return this.provider().createCustomer(input);
-  }
-
-  createPayment(input: CreatePaymentInput) {
-    return this.provider().createPayment(input);
-  }
-
-  getPaymentStatus(externalId: string) {
-    return this.provider().getPaymentStatus(externalId);
-  }
-
-  cancelPayment(externalId: string) {
-    return this.provider().cancelPayment(externalId);
-  }
-
-  async ensureGatewayCustomer(
-    userId: string,
-    input: Pick<CreateCustomerInput, 'name' | 'email' | 'taxId'>,
-  ): Promise<{ externalId: string }> {
-    const existing = await this.prisma.gatewayCustomer.findUnique({
-      where: { userId_provider: { userId, provider: PaymentProvider.ASAAS } },
-    });
-
-    if (existing) return { externalId: existing.customerId };
-
-    const { externalId } = await this.provider().createCustomer(input);
-    try {
-      await this.prisma.gatewayCustomer.create({
-        data: {
-          userId,
-          provider: PaymentProvider.ASAAS,
-          customerId: externalId,
-        },
-      });
-      return { externalId };
-    } catch (error) {
-      // P2002 = Another req was created in meantime
-      if (
-        error instanceof PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        const again = await this.prisma.gatewayCustomer.findUnique({
-          where: {
-            userId_provider: { userId, provider: PaymentProvider.ASAAS },
-          },
-        });
-        if (again) return { externalId: again.customerId };
-      }
-      throw error;
-    }
-  }
+  constructor(private readonly prisma: PrismaService) {}
 
   async markOrderPaid(orderId: string, paymentId: string) {
     await this.prisma.$transaction(async (tx) => {
@@ -83,7 +18,7 @@ export class PaymentService {
 
       await tx.payment.update({
         where: { id: paymentId },
-        data: { status: PaymentStatus.APPROVED, paidAt: new Date() },
+        data: { status: PaymentStatus.APPROVED, confirmedAt: new Date() },
       });
 
       await tx.order.update({
