@@ -7,6 +7,7 @@ import { VenueController } from './venue.controller';
 import { VenueService } from './venue.service';
 import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
 import { UserService } from 'src/user/user.service';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 
 const userId = 'user-uuid';
 const user = { id: userId, role: 'ORGANIZER' as const };
@@ -33,6 +34,7 @@ describe('VenueController', () => {
       providers: [
         { provide: VenueService, useValue: mockVenueService },
         { provide: UserService, useValue: mockUserService },
+        { provide: CACHE_MANAGER, useValue: {} },
         ActiveUserPipe,
       ],
     }).compile();

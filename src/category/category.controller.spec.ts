@@ -6,6 +6,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CategoryController } from './category.controller';
 import { CategoryService } from './category.service';
 import { UserService } from 'src/user/user.service';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 
 const mockCategoryService = {
   create: jest.fn(),
@@ -33,6 +34,7 @@ describe('CategoryController', () => {
       providers: [
         { provide: CategoryService, useValue: mockCategoryService },
         { provide: UserService, useValue: mockUserService },
+        { provide: CACHE_MANAGER, useValue: {} },
       ],
     }).compile();
 
