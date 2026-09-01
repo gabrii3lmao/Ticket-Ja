@@ -16,8 +16,9 @@ export class ApiKeyGuard implements CanActivate {
 
     const apiKey = request.headers['x-api-key'];
     const adminKey = this.configService.get<string>('HEALTH_CHECK_SECRET');
+    const env = this.configService.get<string>('NODE_ENV');
 
-    if (!apiKey || apiKey !== adminKey) {
+    if ((!apiKey || apiKey !== adminKey) && env === 'production') {
       throw new NotFoundException();
     }
 
