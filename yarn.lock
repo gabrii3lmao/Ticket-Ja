@@ -5994,13 +5994,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"install@npm:^0.13.0":
-  version: 0.13.0
-  resolution: "install@npm:0.13.0"
-  checksum: 10c0/364d7d1e9404ff7ae3015dee7266b4ffb0e2aae348474b7ffd3e42fcbb78b37e29848e18ca94f93166f6ddb248be0f775fbed87cc92dafb018c289a86d010cf1
-  languageName: node
-  linkType: hard
-
 "internmap@npm:1 - 2, internmap@npm:2.0.3":
   version: 2.0.3
   resolution: "internmap@npm:2.0.3"
@@ -8747,7 +8740,6 @@ __metadata:
     globals: "npm:^17.0.0"
     helmet: "npm:^8.3.0"
     husky: "npm:^9.1.7"
-    install: "npm:^0.13.0"
     ioredis: "npm:^6.0.0"
     jest: "npm:^30.0.0"
     keyv: "npm:^5.6.0"

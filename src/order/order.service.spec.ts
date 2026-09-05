@@ -9,6 +9,15 @@ class mockDecimal {
   times(other: mockDecimal | number | string) {
     return new mockDecimal(this.value * Number(other));
   }
+  dividedBy(other: mockDecimal | number | string) {
+    return new mockDecimal(this.value / Number(other));
+  }
+  minus(other: mockDecimal | number | string) {
+    return new mockDecimal(this.value - Number(other));
+  }
+  greaterThan(other: mockDecimal | number | string) {
+    return this.value > Number(other);
+  }
   toDecimalPlaces() {
     return new mockDecimal(Math.round(this.value * 100) / 100);
   }
@@ -32,7 +41,11 @@ class PrismaClientKnownRequestError extends Error {
 jest.mock('generated/prisma/client', () => ({
   Prisma: { Decimal: mockDecimal },
   PrismaClient: class {},
-  PaymentStatus: { PENDING: 'PENDING', APPROVED: 'APPROVED', REJECTED: 'REJECTED' },
+  PaymentStatus: {
+    PENDING: 'PENDING',
+    APPROVED: 'APPROVED',
+    REJECTED: 'REJECTED',
+  },
   OrderStatus: { PENDING: 'PENDING', PAID: 'PAID', CANCELED: 'CANCELED' },
   TicketStatus: { VALID: 'VALID', USED: 'USED', CANCELED: 'CANCELED' },
 }));
@@ -52,6 +65,10 @@ const mockTx = {
   category: {
     findMany: jest.fn(),
     update: jest.fn(),
+  },
+  coupon: {
+    findUnique: jest.fn(),
+    updateMany: jest.fn(),
   },
   order: {
     create: jest.fn(),
@@ -558,6 +575,190 @@ describe('OrderService', () => {
       expect(mockTx.category.update).toHaveBeenCalledTimes(2);
       expect(mockTx.order.create).not.toHaveBeenCalled();
       expect(mockTx.payment.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('create - coupon', () => {
+    const percentageCoupon = {
+      id: 'coupon-uuid',
+      code: 'VIP10',
+      discountType: 'PERCENTAGE',
+      value: new mockDecimal(10),
+      expiresAt: null,
+      maxUses: null,
+      currentUses: 0,
+      active: true,
+      eventId: 'event-uuid',
+    };
+
+    const captureOrderData = () => {
+      let data!: {
+        subtotal: mockDecimal;
+        fee: mockDecimal;
+        discount: mockDecimal;
+        total: mockDecimal;
+        coupon?: { connect: { id: string } };
+      };
+      mockTx.order.create.mockImplementation((args: { data: typeof data }) => {
+        data = args.data;
+        return { id: 'order-uuid', total: args.data.total };
+      });
+      return () => data;
+    };
+
+    const dtoWithCoupon = {
+      items: [{ categoryId: 'cat-uuid', quantity: 2 }],
+      couponCode: 'vip10',
+    };
+
+    beforeEach(() => {
+      mockTx.category.findMany.mockResolvedValue([baseCategory]);
+      mockTx.category.update.mockResolvedValue({
+        ...baseCategory,
+        quantity: 98,
+      });
+    });
+
+    it('should apply a PERCENTAGE coupon and persist discount + couponId', async () => {
+      mockTx.coupon.findUnique.mockResolvedValue(percentageCoupon);
+      mockTx.coupon.updateMany.mockResolvedValue({ count: 1 });
+      mockTx.payment.create.mockResolvedValue({ id: 'pay-uuid' });
+      const getData = captureOrderData();
+
+      await service.create(dtoWithCoupon, userId);
+
+      expect(mockTx.coupon.findUnique).toHaveBeenCalledWith({
+        where: { code: 'VIP10' },
+      });
+      expect(mockTx.coupon.updateMany).toHaveBeenCalled();
+      const data = getData();
+      expect(data.discount.toNumber()).toBe(50);
+      expect(data.total.toNumber()).toBe(475);
+      expect(data.coupon).toEqual({ connect: { id: 'coupon-uuid' } });
+      expect(mockTx.payment.create).toHaveBeenCalled();
+    });
+
+    it('should cap a FIXED coupon at the subtotal', async () => {
+      mockTx.coupon.findUnique.mockResolvedValue({
+        ...percentageCoupon,
+        discountType: 'FIXED',
+        value: new mockDecimal(700),
+      });
+      mockTx.coupon.updateMany.mockResolvedValue({ count: 1 });
+      mockTx.payment.create.mockResolvedValue({ id: 'pay-uuid' });
+      const getData = captureOrderData();
+
+      await service.create(dtoWithCoupon, userId);
+
+      const data = getData();
+      expect(data.discount.toNumber()).toBe(500);
+      expect(data.total.toNumber()).toBe(25);
+    });
+
+    it('should throw BadRequestException when the coupon does not exist', async () => {
+      mockTx.coupon.findUnique.mockResolvedValue(null);
+
+      await expect(service.create(dtoWithCoupon, userId)).rejects.toThrow(
+        BadRequestException,
+      );
+
+      expect(mockTx.coupon.updateMany).not.toHaveBeenCalled();
+      expect(mockTx.order.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when the coupon is inactive', async () => {
+      mockTx.coupon.findUnique.mockResolvedValue({
+        ...percentageCoupon,
+        active: false,
+      });
+
+      await expect(service.create(dtoWithCoupon, userId)).rejects.toThrow(
+        BadRequestException,
+      );
+
+      expect(mockTx.coupon.updateMany).not.toHaveBeenCalled();
+      expect(mockTx.order.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when the coupon has expired', async () => {
+      mockTx.coupon.findUnique.mockResolvedValue({
+        ...percentageCoupon,
+        expiresAt: new Date(Date.now() - 1000),
+      });
+
+      await expect(service.create(dtoWithCoupon, userId)).rejects.toThrow(
+        BadRequestException,
+      );
+
+      expect(mockTx.coupon.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when the coupon reached max uses', async () => {
+      mockTx.coupon.findUnique.mockResolvedValue({
+        ...percentageCoupon,
+        maxUses: 5,
+        currentUses: 5,
+      });
+
+      await expect(service.create(dtoWithCoupon, userId)).rejects.toThrow(
+        BadRequestException,
+      );
+
+      expect(mockTx.coupon.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when the coupon is exhausted concurrently', async () => {
+      mockTx.coupon.findUnique.mockResolvedValue(percentageCoupon);
+      mockTx.coupon.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.create(dtoWithCoupon, userId)).rejects.toThrow(
+        BadRequestException,
+      );
+
+      expect(mockTx.order.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when the coupon belongs to another event', async () => {
+      mockTx.coupon.findUnique.mockResolvedValue({
+        ...percentageCoupon,
+        eventId: 'event-other',
+      });
+
+      await expect(service.create(dtoWithCoupon, userId)).rejects.toThrow(
+        BadRequestException,
+      );
+
+      expect(mockTx.coupon.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when the order spans multiple events', async () => {
+      mockTx.category.findMany.mockResolvedValue([
+        baseCategory,
+        {
+          ...baseCategory2,
+          eventId: 'event-other',
+          event: {
+            ...publishedEvent,
+            id: 'event-other',
+          },
+        },
+      ]);
+      mockTx.coupon.findUnique.mockResolvedValue(percentageCoupon);
+
+      const multiEventDto = {
+        items: [
+          { categoryId: 'cat-uuid', quantity: 1 },
+          { categoryId: 'cat-uuid-2', quantity: 1 },
+        ],
+        couponCode: 'vip10',
+      };
+
+      await expect(service.create(multiEventDto, userId)).rejects.toThrow(
+        BadRequestException,
+      );
+
+      expect(mockTx.coupon.updateMany).not.toHaveBeenCalled();
+      expect(mockTx.order.create).not.toHaveBeenCalled();
     });
   });
 });

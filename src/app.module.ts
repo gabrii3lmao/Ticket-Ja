@@ -18,6 +18,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { createKeyv } from '@keyv/redis';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
+import { CouponModule } from './coupon/coupon.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis'
     TicketModule,
     PaymentModule,
     AdminModule,
+    CouponModule,
   ],
   controllers: [],
   providers: [

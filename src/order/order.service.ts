@@ -10,6 +10,7 @@ import {
   Decimal,
   PrismaClientKnownRequestError,
 } from 'generated/prisma/internal/prismaNamespace';
+import { DiscountType } from 'generated/prisma/enums';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { PaymentService } from 'src/payment/payment.service';
 
@@ -22,6 +23,8 @@ export class OrderService {
   ) {}
 
   async create(createOrderDto: CreateOrderDto, userId: string) {
+    const couponCode = createOrderDto.couponCode?.trim().toUpperCase();
+
     const { order, payment } = await this.prisma.$transaction(async (tx) => {
       // Phase 1: validate and reserve stock
       const itemsData = await this.reserveAndValidateStock(
@@ -29,15 +32,30 @@ export class OrderService {
         createOrderDto.items,
       );
 
-      // Phase 2: calculate amounts
-      const { subtotal, fee, total } = this.calculateAmount(itemsData);
+      // Phase 2: apply coupon (if any) and calculate amounts
+      const subtotal = this.calculateSubtotal(itemsData);
+
+      const coupon = couponCode
+        ? await this.resolveAndConsumeCoupon(
+            tx,
+            couponCode,
+            itemsData,
+            subtotal,
+          )
+        : null;
+
+      const fee = subtotal.times(this.FEE_RATE).toDecimalPlaces(2);
+      const discount = coupon?.discount ?? new Prisma.Decimal(0);
+      const total = subtotal.plus(fee).minus(discount);
 
       // Phase 3: create Order + OrderItems + tickets
-      const order = await this.persistOrder(tx, userId, itemsData, {
-        subtotal,
-        fee,
-        total,
-      });
+      const order = await this.persistOrder(
+        tx,
+        userId,
+        itemsData,
+        { subtotal, fee, discount, total },
+        coupon?.id,
+      );
 
       const payment = await tx.payment.create({
         data: {
@@ -139,20 +157,89 @@ export class OrderService {
     }));
   }
 
-  private calculateAmount(
+  private calculateSubtotal(
     itemsData: Array<{ category: Category; quantity: number }>,
   ) {
-    const subtotal = itemsData.reduce((acc, { category, quantity }) => {
+    return itemsData.reduce((acc, { category, quantity }) => {
       return acc.plus(category.price.times(quantity));
     }, new Prisma.Decimal(0));
+  }
 
-    const fee = subtotal.times(this.FEE_RATE).toDecimalPlaces(2);
-    const total = subtotal.plus(fee);
+  private async resolveAndConsumeCoupon(
+    tx: Prisma.TransactionClient,
+    couponCode: string,
+    itemsData: Array<{ category: Category; quantity: number }>,
+    subtotal: Decimal,
+  ): Promise<{ id: string; discount: Decimal }> {
+    const coupon = await tx.coupon.findUnique({
+      where: { code: couponCode },
+    });
+
+    if (!coupon) {
+      throw new BadRequestException('Coupon not found');
+    }
+
+    const eventIds = [
+      ...new Set(itemsData.map((item) => item.category.eventId)),
+    ];
+
+    if (eventIds.length > 1) {
+      throw new BadRequestException(
+        'Order with a coupon must reference a single event',
+      );
+    }
+
+    if (coupon.eventId && coupon.eventId !== eventIds[0]) {
+      throw new BadRequestException('Coupon does not apply to this event');
+    }
+
+    const now = new Date();
+
+    if (!coupon.active) {
+      throw new BadRequestException('Coupon is inactive');
+    }
+
+    if (coupon.expiresAt && now > coupon.expiresAt) {
+      throw new BadRequestException('Coupon has expired');
+    }
+
+    if (coupon.maxUses !== null && coupon.currentUses >= coupon.maxUses) {
+      throw new BadRequestException(
+        'Coupon has reached the maximum number of uses',
+      );
+    }
+
+    const where: Prisma.CouponWhereInput = {
+      id: coupon.id,
+      active: true,
+      OR: [{ expiresAt: null }, { expiresAt: { gte: now } }],
+    };
+
+    if (coupon.maxUses !== null) {
+      where.currentUses = { lt: coupon.maxUses };
+    }
+
+    const { count } = await tx.coupon.updateMany({
+      where,
+      data: { currentUses: { increment: 1 } },
+    });
+
+    if (count === 0) {
+      throw new BadRequestException('Coupon is no longer available');
+    }
+
+    let discount =
+      coupon.discountType === DiscountType.PERCENTAGE
+        ? subtotal.times(coupon.value).dividedBy(100)
+        : coupon.value;
+
+    if (discount.greaterThan(subtotal)) {
+      discount = subtotal;
+    }
 
     return {
-      subtotal,
-      fee,
-      total,
+      id: coupon.id,
+      discount: discount.toDecimalPlaces(2),
     };
   }
 
@@ -181,27 +268,36 @@ export class OrderService {
     tx: Prisma.TransactionClient,
     userId: string,
     itemsData: Array<{ category: Category; quantity: number }>,
-    amounts: { subtotal: Decimal; fee: Decimal; total: Decimal },
+    amounts: {
+      subtotal: Decimal;
+      fee: Decimal;
+      discount: Decimal;
+      total: Decimal;
+    },
+    couponId?: string,
   ) {
-    return tx.order.create({
-      data: {
-        userId,
-        subtotal: amounts.subtotal,
-        discount: 0,
-        fee: amounts.fee,
-        total: amounts.total,
-        orderItems: {
-          create: itemsData.map(({ category, quantity }) => ({
-            category: { connect: { id: category.id } },
-            quantity,
-            unitPrice: category.price,
-            total: category.price.times(quantity),
-            tickets: {
-              create: this.buildTickets(quantity, userId, category.eventId),
-            },
-          })),
-        },
+    const data: Prisma.OrderCreateInput = {
+      user: { connect: { id: userId } },
+      subtotal: amounts.subtotal,
+      discount: amounts.discount,
+      fee: amounts.fee,
+      total: amounts.total,
+      ...(couponId ? { coupon: { connect: { id: couponId } } } : {}),
+      orderItems: {
+        create: itemsData.map(({ category, quantity }) => ({
+          category: { connect: { id: category.id } },
+          quantity,
+          unitPrice: category.price,
+          total: category.price.times(quantity),
+          tickets: {
+            create: this.buildTickets(quantity, userId, category.eventId),
+          },
+        })),
       },
+    };
+
+    return tx.order.create({
+      data,
       include: {
         orderItems: {
           include: { tickets: true },
