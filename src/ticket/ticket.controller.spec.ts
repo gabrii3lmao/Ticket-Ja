@@ -72,7 +72,7 @@ describe('TicketController', () => {
   });
 
   describe('validate', () => {
-    it('should call ticketService.validate with code', async () => {
+    it('should call ticketService.validate with code and user', async () => {
       const result = {
         ticket: { code: 'TKT-ABC', status: 'VALID', createdAt: new Date() },
         event: { name: 'Rock in Rio', startDate: new Date(), venue: {} },
@@ -80,9 +80,9 @@ describe('TicketController', () => {
       };
       mockTicketService.validate.mockResolvedValue(result);
 
-      const response = await controller.validate('TKT-ABC');
+      const response = await controller.validate('TKT-ABC', user);
 
-      expect(ticketService.validate).toHaveBeenCalledWith('TKT-ABC');
+      expect(ticketService.validate).toHaveBeenCalledWith('TKT-ABC', user);
       expect(response).toEqual(result);
     });
   });

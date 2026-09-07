@@ -86,14 +86,21 @@ export class TicketService {
     return ticket;
   }
 
-  async validate(code: string) {
+  async validate(code: string, user: UserPayload) {
     const ticket = await this.prisma.ticket.findUnique({
       where: { code },
-      include: { event: { include: { venue: true } } },
+      include: { event: { include: { venue: true, organizerProfile: true } } },
     });
 
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
+    }
+
+    if (
+      user.role !== Role.ADMIN &&
+      ticket.event.organizerProfile.userId !== user.id
+    ) {
+      throw new ForbiddenException('Ticket not found or not yours');
     }
 
     return {
@@ -112,14 +119,22 @@ export class TicketService {
   }
 
   async markAsUsed(id: string, user: UserPayload) {
-    const ticket = await this.prisma.ticket.findUnique({ where: { id } });
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { id },
+      include: { event: { include: { organizerProfile: true } } },
+    });
 
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
     }
 
-    if (user.role !== Role.ADMIN && ticket.userId !== user.id) {
-      throw new ForbiddenException('Ticket not found or not yours');
+    if (
+      user.role !== Role.ADMIN &&
+      ticket.event.organizerProfile.userId !== user.id
+    ) {
+      throw new ForbiddenException(
+        'Ticket not found or not the owner of the event',
+      );
     }
 
     if (ticket.status !== 'VALID') {

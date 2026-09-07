@@ -88,26 +88,34 @@ export class OrderService {
     const categoryMap = new Map(categories.map((c) => [c.id, c]));
     const now = new Date();
 
-    for (const [categoryId, quantity] of itemsById) {
-      const category = categoryMap.get(categoryId);
-
-      if (!category) {
+    for (const categoryId of itemsById.keys()) {
+      if (!categoryMap.has(categoryId)) {
         throw new NotFoundException(`Category "${categoryId}" not found`);
       }
+    }
 
-      // Event must be PUBLISHED to allow ticket sales
+    const eventsIds = [...new Set(categories.map((cat) => cat.eventId))];
+    if (eventsIds.length > 1) {
+      throw new BadRequestException(
+        'Order category must reference a single event',
+      );
+    }
+
+    for (const [categoryId] of itemsById) {
+      const category = categoryMap.get(categoryId)!;
+
       if (category.event.status !== 'PUBLISHED') {
         throw new BadRequestException(
           `Event "${category.event.name}" is not published (current status: ${category.event.status})`,
         );
       }
 
-      // validate sales window
       if (category.salesStart && now < category.salesStart) {
         throw new BadRequestException(
           `Sales for "${category.name}" start on ${category.salesStart.toISOString()}`,
         );
       }
+
       if (category.salesEnd && now > category.salesEnd) {
         throw new BadRequestException(
           `Sales for "${category.name}" ended on ${category.salesEnd.toISOString()}`,
@@ -119,42 +127,42 @@ export class OrderService {
           `Event "${category.event.name}" has already begun`,
         );
       }
+    }
 
-      if (category.quantity < quantity) {
-        throw new BadRequestException(
-          `Insufficient tickets for "${category.name}" (requested: ${quantity}, available: ${category.quantity})`,
-        );
+    const result: Array<{ category: Category; quantity: number }> = [];
+
+    const sortedCategoryIds = [...itemsById.keys()].sort();
+
+    for (const categoryId of sortedCategoryIds) {
+      const quantity = itemsById.get(categoryId)!;
+      const category = categoryMap.get(categoryId)!;
+
+      try {
+        const updatedCategory = await tx.category.update({
+          where: {
+            id: categoryId,
+            quantity: { gte: quantity },
+          },
+          data: {
+            quantity: { decrement: quantity },
+          },
+        });
+
+        result.push({ category: updatedCategory, quantity });
+      } catch (error) {
+        if (
+          error instanceof PrismaClientKnownRequestError &&
+          error.code === 'P2025'
+        ) {
+          throw new BadRequestException(
+            `Insufficient tickets for "${category.name}".`,
+          );
+        }
+        throw error;
       }
     }
 
-    await Promise.all(
-      [...itemsById].map(async ([categoryId, quantity]) => {
-        const category = categoryMap.get(categoryId)!;
-
-        try {
-          await tx.category.update({
-            where: { id: categoryId, quantity: { gte: quantity } },
-            data: { quantity: { decrement: quantity } },
-          });
-        } catch (error) {
-          if (
-            error instanceof PrismaClientKnownRequestError &&
-            error.code === 'P2025'
-          ) {
-            throw new BadRequestException(
-              `Insufficient tickets for "${category.name}" ` +
-                `(requested: ${quantity}, available: ${category.quantity})`,
-            );
-          }
-          throw error;
-        }
-      }),
-    );
-
-    return [...itemsById].map(([categoryId, quantity]) => ({
-      category: categoryMap.get(categoryId)!,
-      quantity,
-    }));
+    return result;
   }
 
   private calculateSubtotal(

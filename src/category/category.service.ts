@@ -10,7 +10,7 @@ import { PrismaService } from 'src/prisma.service';
 import { QueryCategoryDto } from './dto/query-category.dto';
 import { assertSalesWindow } from 'src/common/validators/event.validator';
 import { UserPayload } from 'src/auth/decorators/current-user.decorator';
-import { Role } from 'generated/prisma/enums';
+import { OrderStatus, Role } from 'generated/prisma/enums';
 import { Prisma } from 'generated/prisma/client';
 
 @Injectable()
@@ -26,7 +26,10 @@ export class CategoryService {
     });
 
     const soldTotal = await this.prisma.orderItem.aggregate({
-      where: { category: { eventId } },
+      where: {
+        category: { eventId },
+        order: { status: { in: [OrderStatus.PENDING, OrderStatus.PAID] } },
+      },
       _sum: { quantity: true },
     });
 
@@ -127,7 +130,10 @@ export class CategoryService {
     });
 
     const soldTotal = await this.prisma.orderItem.aggregate({
-      where: { category: { eventId: event.id } },
+      where: {
+        category: { eventId: event.id },
+        order: { status: { in: [OrderStatus.PENDING, OrderStatus.PAID] } },
+      },
       _sum: { quantity: true },
     });
 

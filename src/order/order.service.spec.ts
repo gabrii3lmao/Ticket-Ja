@@ -578,6 +578,34 @@ describe('OrderService', () => {
     });
   });
 
+  describe('create - single event', () => {
+    it('should throw BadRequestException when the order references multiple events', async () => {
+      mockTx.category.findMany.mockResolvedValue([
+        baseCategory,
+        {
+          ...baseCategory2,
+          eventId: 'event-other',
+          event: { ...publishedEvent, id: 'event-other' },
+        },
+      ]);
+
+      const multiEventDto = {
+        items: [
+          { categoryId: 'cat-uuid', quantity: 1 },
+          { categoryId: 'cat-uuid-2', quantity: 1 },
+        ],
+      };
+
+      await expect(service.create(multiEventDto, userId)).rejects.toThrow(
+        BadRequestException,
+      );
+
+      expect(mockTx.category.update).not.toHaveBeenCalled();
+      expect(mockTx.order.create).not.toHaveBeenCalled();
+      expect(mockTx.payment.create).not.toHaveBeenCalled();
+    });
+  });
+
   describe('create - coupon', () => {
     const percentageCoupon = {
       id: 'coupon-uuid',

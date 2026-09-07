@@ -22,7 +22,13 @@ const mockPrisma = {
 };
 
 const userId = 'user-uuid';
+const organizerId = 'organizer-uuid';
 const user = { id: userId, role: 'BUYER' as const };
+const organizerUser = { id: organizerId, role: 'ORGANIZER' as const };
+const otherOrganizerUser = {
+  id: 'organizer-other',
+  role: 'ORGANIZER' as const,
+};
 const adminUser = { id: 'admin-uuid', role: 'ADMIN' as const };
 
 const baseEvent = {
@@ -30,6 +36,10 @@ const baseEvent = {
   name: 'Rock in Rio',
   status: 'PUBLISHED',
   startDate: new Date('2099-09-15'),
+  organizerProfile: {
+    id: 'profile-uuid',
+    userId: organizerId,
+  },
   venue: {
     id: 'venue-uuid',
     name: 'Parque Olímpico',
@@ -270,14 +280,16 @@ describe('TicketService', () => {
   });
 
   describe('validate', () => {
-    it('should return valid ticket info for a VALID ticket', async () => {
+    it('should return valid ticket info for a VALID ticket when called by the event organizer', async () => {
       mockPrisma.ticket.findUnique.mockResolvedValue({ ...baseTicket });
 
-      const result = await service.validate('TKT-ABC123');
+      const result = await service.validate('TKT-ABC123', organizerUser);
 
       expect(mockPrisma.ticket.findUnique).toHaveBeenCalledWith({
         where: { code: 'TKT-ABC123' },
-        include: { event: { include: { venue: true } } },
+        include: {
+          event: { include: { venue: true, organizerProfile: true } },
+        },
       });
       expect(result).toEqual({
         ticket: {
@@ -298,13 +310,27 @@ describe('TicketService', () => {
       });
     });
 
+    it('should allow ADMIN to validate a ticket of any event', async () => {
+      mockPrisma.ticket.findUnique.mockResolvedValue({
+        ...baseTicket,
+        event: {
+          ...baseEvent,
+          organizerProfile: { id: 'profile-2', userId: 'another-organizer' },
+        },
+      });
+
+      const result = await service.validate('TKT-ABC123', adminUser);
+
+      expect(result.valid).toBe(true);
+    });
+
     it('should return valid: false for a USED ticket', async () => {
       mockPrisma.ticket.findUnique.mockResolvedValue({
         ...baseTicket,
         status: 'USED',
       });
 
-      const result = await service.validate('TKT-ABC123');
+      const result = await service.validate('TKT-ABC123', organizerUser);
 
       expect(result.valid).toBe(false);
     });
@@ -315,7 +341,7 @@ describe('TicketService', () => {
         status: 'CANCELED',
       });
 
-      const result = await service.validate('TKT-ABC123');
+      const result = await service.validate('TKT-ABC123', organizerUser);
 
       expect(result.valid).toBe(false);
     });
@@ -326,7 +352,7 @@ describe('TicketService', () => {
         event: { ...baseEvent, status: 'FINISHED' },
       });
 
-      const result = await service.validate('TKT-ABC123');
+      const result = await service.validate('TKT-ABC123', organizerUser);
 
       expect(result.valid).toBe(false);
     });
@@ -337,7 +363,7 @@ describe('TicketService', () => {
         event: { ...baseEvent, status: 'CANCELED' },
       });
 
-      const result = await service.validate('TKT-ABC123');
+      const result = await service.validate('TKT-ABC123', organizerUser);
 
       expect(result.valid).toBe(false);
     });
@@ -345,19 +371,39 @@ describe('TicketService', () => {
     it('should throw NotFoundException when code is invalid', async () => {
       mockPrisma.ticket.findUnique.mockResolvedValue(null);
 
-      await expect(service.validate('INVALID')).rejects.toThrow(
+      await expect(service.validate('INVALID', organizerUser)).rejects.toThrow(
         NotFoundException,
       );
+    });
+
+    it('should throw ForbiddenException when a buyer tries to validate', async () => {
+      mockPrisma.ticket.findUnique.mockResolvedValue({ ...baseTicket });
+
+      await expect(service.validate('TKT-ABC123', user)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('should throw ForbiddenException when an organizer of another event tries to validate', async () => {
+      mockPrisma.ticket.findUnique.mockResolvedValue({ ...baseTicket });
+
+      await expect(
+        service.validate('TKT-ABC123', otherOrganizerUser),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
   describe('markAsUsed', () => {
-    it('should mark a VALID ticket as USED', async () => {
+    it('should mark a VALID ticket as USED when called by the event organizer', async () => {
       mockPrisma.ticket.findUnique.mockResolvedValue({ ...baseTicket });
       mockPrisma.ticket.updateMany.mockResolvedValue({ count: 1 });
 
-      const result = await service.markAsUsed('ticket-uuid', user);
+      const result = await service.markAsUsed('ticket-uuid', organizerUser);
 
+      expect(mockPrisma.ticket.findUnique).toHaveBeenCalledWith({
+        where: { id: 'ticket-uuid' },
+        include: { event: { include: { organizerProfile: true } } },
+      });
       expect(mockPrisma.ticket.updateMany).toHaveBeenCalledWith({
         where: { id: 'ticket-uuid', status: 'VALID' },
         data: { status: 'USED', usedAt: expect.any(Date) },
@@ -369,34 +415,42 @@ describe('TicketService', () => {
       mockPrisma.ticket.findUnique.mockResolvedValue({ ...baseTicket });
       mockPrisma.ticket.updateMany.mockResolvedValue({ count: 0 });
 
-      await expect(service.markAsUsed('ticket-uuid', user)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.markAsUsed('ticket-uuid', organizerUser),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw NotFoundException when ticket does not exist', async () => {
       mockPrisma.ticket.findUnique.mockResolvedValue(null);
 
-      await expect(service.markAsUsed('nonexistent', user)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.markAsUsed('nonexistent', organizerUser),
+      ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw ForbiddenException when ticket belongs to another user', async () => {
-      mockPrisma.ticket.findUnique.mockResolvedValue({
-        ...baseTicket,
-        userId: 'other-user',
-      });
+    it('should throw ForbiddenException when a buyer tries to mark as used', async () => {
+      mockPrisma.ticket.findUnique.mockResolvedValue({ ...baseTicket });
 
       await expect(service.markAsUsed('ticket-uuid', user)).rejects.toThrow(
         ForbiddenException,
       );
     });
 
-    it('should allow ADMIN to mark a ticket of another user as used', async () => {
+    it('should throw ForbiddenException when the organizer does not own the event', async () => {
+      mockPrisma.ticket.findUnique.mockResolvedValue({ ...baseTicket });
+
+      await expect(
+        service.markAsUsed('ticket-uuid', otherOrganizerUser),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should allow ADMIN to mark a ticket as used', async () => {
       mockPrisma.ticket.findUnique.mockResolvedValue({
         ...baseTicket,
-        userId: 'other-user',
+        event: {
+          ...baseEvent,
+          organizerProfile: { id: 'profile-2', userId: 'another-organizer' },
+        },
       });
       mockPrisma.ticket.updateMany.mockResolvedValue({ count: 1 });
 
@@ -415,9 +469,9 @@ describe('TicketService', () => {
         status: 'USED',
       });
 
-      await expect(service.markAsUsed('ticket-uuid', user)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.markAsUsed('ticket-uuid', organizerUser),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException when ticket is CANCELED', async () => {
@@ -426,9 +480,9 @@ describe('TicketService', () => {
         status: 'CANCELED',
       });
 
-      await expect(service.markAsUsed('ticket-uuid', user)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.markAsUsed('ticket-uuid', organizerUser),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

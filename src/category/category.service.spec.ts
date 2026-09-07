@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { CategoryService } from './category.service';
 import { PrismaService } from 'src/prisma.service';
+import { OrderStatus } from 'generated/prisma/enums';
 
 const mockPrisma = {
   $transaction: jest.fn(),
@@ -93,7 +94,10 @@ describe('CategoryService', () => {
         _sum: { quantity: true },
       });
       expect(prisma.orderItem.aggregate).toHaveBeenCalledWith({
-        where: { category: { eventId } },
+        where: {
+          category: { eventId },
+          order: { status: { in: [OrderStatus.PENDING, OrderStatus.PAID] } },
+        },
         _sum: { quantity: true },
       });
       expect(prisma.category.create).toHaveBeenCalledWith({
