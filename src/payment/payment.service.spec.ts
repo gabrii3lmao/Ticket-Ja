@@ -137,6 +137,31 @@ describe('PaymentService', () => {
       });
     });
 
+    it('persists the rejection reason and timestamp when provided', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue({
+        id: 'ord_1',
+        status: OrderStatus.PENDING,
+        orderItems: [],
+      });
+
+      await service.releaseOrder(
+        'ord_1',
+        'pay_1',
+        PaymentStatus.REJECTED,
+        OrderStatus.CANCELED,
+        'Reservation TTL expired',
+      );
+
+      expect(mockPrisma.payment.update).toHaveBeenCalledWith({
+        where: { id: 'pay_1' },
+        data: {
+          status: PaymentStatus.REJECTED,
+          rejectReason: 'Reservation TTL expired',
+          rejectedAt: expect.any(Date),
+        },
+      });
+    });
+
     it('does nothing when the order does not exist', async () => {
       mockPrisma.order.findUnique.mockResolvedValue(null);
 

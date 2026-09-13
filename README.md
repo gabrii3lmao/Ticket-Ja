@@ -104,16 +104,18 @@ The payment flow is designed for simplicity and manual control:
 3. The administrator verifies the payment manually (e.g., bank transfer, PIX confirmation).
 4. The administrator confirms (`PATCH /admin/payments-requests/:id/confirm`) or rejects (`PATCH /admin/payments-requests/:id/reject`) the payment.
 5. Confirmation marks the order as `PAID`. Rejection cancels the order, releases stock, and cancels tickets.
+6. **Reservation expiry** — each order is created with a `reservedUntil` timestamp (default 15 min, `ORDER_RESERVATION_TTL_MINUTES`). A scheduled job (`OrderExpirationService`, runs every minute) cancels orders that are still `PENDING` after that time, releasing stock and canceling tickets.
 
 ## Environment Variables
 
 See `.env.example` for the full list. Key variables:
 
 ```bash
-DATABASE_URL=         # PostgreSQL connection string
-REDIS_URL=            # Redis connection string (cache + rate-limit store)
-JWT_SECRET=           # Access token signing key
-JWT_REFRESH_SECRET=   # Refresh token signing key
+DATABASE_URL=                    # PostgreSQL connection string
+REDIS_URL=                       # Redis connection string (cache + rate-limit store)
+JWT_SECRET=                      # Access token signing key
+JWT_REFRESH_SECRET=              # Refresh token signing key
+ORDER_RESERVATION_TTL_MINUTES=   # PENDING order reservation TTL (default 15)
 ```
 
 ## Scripts

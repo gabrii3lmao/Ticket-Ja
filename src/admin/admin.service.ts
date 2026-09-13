@@ -193,16 +193,12 @@ export class AdminService {
       throw new NotFoundException('Payment not found');
     }
 
-    await this.prisma.payment.update({
-      where: { orderId },
-      data: { rejectReason: reason, rejectedAt: new Date() },
-    });
-
     return this.paymentService.releaseOrder(
       orderId,
       payment.id,
       PaymentStatus.REJECTED,
       OrderStatus.CANCELED,
+      reason,
     );
   }
 }

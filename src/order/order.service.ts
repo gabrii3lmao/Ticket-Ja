@@ -12,14 +12,15 @@ import {
 } from 'generated/prisma/internal/prismaNamespace';
 import { DiscountType } from 'generated/prisma/enums';
 import { CreateOrderDto } from './dto/create-order.dto';
-import { PaymentService } from 'src/payment/payment.service';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class OrderService {
   private readonly FEE_RATE = new Decimal('0.05');
+  private readonly SIXTY_SECONDS = 60000;
   constructor(
     private prisma: PrismaService,
-    private paymentService: PaymentService,
+    private configService: ConfigService,
   ) {}
 
   async create(createOrderDto: CreateOrderDto, userId: string) {
@@ -48,6 +49,10 @@ export class OrderService {
       const discount = coupon?.discount ?? new Prisma.Decimal(0);
       const total = subtotal.plus(fee).minus(discount);
 
+      const TTL =
+        this.configService.get<number>('ORDER_RESERVATION_TTL_MINUTES') ?? 15;
+
+      const reservedUntil = new Date(Date.now() + TTL * this.SIXTY_SECONDS);
       // Phase 3: create Order + OrderItems + tickets
       const order = await this.persistOrder(
         tx,
@@ -55,6 +60,7 @@ export class OrderService {
         itemsData,
         { subtotal, fee, discount, total },
         coupon?.id,
+        reservedUntil,
       );
 
       const payment = await tx.payment.create({
@@ -283,12 +289,14 @@ export class OrderService {
       total: Decimal;
     },
     couponId?: string,
+    reservedUntil?: Date,
   ) {
     const data: Prisma.OrderCreateInput = {
       user: { connect: { id: userId } },
       subtotal: amounts.subtotal,
       discount: amounts.discount,
       fee: amounts.fee,
+      reservedUntil,
       total: amounts.total,
       ...(couponId ? { coupon: { connect: { id: couponId } } } : {}),
       orderItems: {

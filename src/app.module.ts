@@ -19,6 +19,7 @@ import { createKeyv } from '@keyv/redis';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import { CouponModule } from './coupon/coupon.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { CouponModule } from './coupon/coupon.module';
     PaymentModule,
     AdminModule,
     CouponModule,
+    ScheduleModule.forRoot(),
   ],
   controllers: [],
   providers: [

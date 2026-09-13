@@ -5,6 +5,7 @@ import {
   TicketStatus,
 } from 'generated/prisma/enums';
 import { PrismaService } from 'src/prisma.service';
+import { Prisma } from 'generated/prisma/client';
 
 @Injectable()
 export class PaymentService {
@@ -33,6 +34,7 @@ export class PaymentService {
     paymentId: string,
     paymentStatus: PaymentStatus,
     orderStatus: OrderStatus,
+    reason?: string,
   ) {
     await this.prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
@@ -53,9 +55,18 @@ export class PaymentService {
         data: { status: TicketStatus.CANCELED },
       });
 
+      const updateData: Prisma.PaymentUpdateInput = {
+        status: paymentStatus,
+      };
+
+      if (reason) {
+        updateData.rejectReason = reason;
+        updateData.rejectedAt = new Date();
+      }
+
       await tx.payment.update({
         where: { id: paymentId },
-        data: { status: paymentStatus },
+        data: updateData,
       });
 
       await tx.order.update({

@@ -59,7 +59,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { OrderService } from './order.service';
 import { PrismaService } from 'src/prisma.service';
-import { PaymentService } from 'src/payment/payment.service';
+import { ConfigService } from '@nestjs/config';
 
 const mockTx = {
   category: {
@@ -82,7 +82,9 @@ const mockPrisma = {
   $transaction: jest.fn(),
 };
 
-const paymentServiceMock = {};
+const mockConfig = {
+  get: jest.fn().mockReturnValue(15),
+};
 
 const userId = 'user-uuid';
 
@@ -122,7 +124,7 @@ describe('OrderService', () => {
       providers: [
         OrderService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: PaymentService, useValue: paymentServiceMock },
+        { provide: ConfigService, useValue: mockConfig },
       ],
     }).compile();
 
@@ -184,7 +186,16 @@ describe('OrderService', () => {
         where: { id: 'cat-uuid', quantity: { gte: 2 } },
         data: { quantity: { decrement: 2 } },
       });
-      expect(mockTx.order.create).toHaveBeenCalled();
+      expect(mockTx.order.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            reservedUntil: expect.any(Date),
+          }),
+        }),
+      );
+      expect(mockConfig.get).toHaveBeenCalledWith(
+        'ORDER_RESERVATION_TTL_MINUTES',
+      );
       expect(mockTx.payment.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({

@@ -12,6 +12,9 @@ The payment flow is **100% manual**, with no external payment gateway integratio
 4. The administrator confirms (`PATCH /api/admin/payments-requests/:id/confirm`) or rejects (`PATCH /api/admin/payments-requests/:id/reject`) the payment.
 5. Confirmation: Payment → `APPROVED`, Order → `PAID`.
 6. Rejection: Payment → `REJECTED`, Order → `CANCELED`, stock restored, tickets → `CANCELED`.
+7. Expiry: if the administrator does not act within the reservation TTL, `OrderExpirationService` (cron, every minute) cancels the order with the same side effects as a rejection, using the reason `Reservation TTL expired`.
+
+The reservation deadline is stored on `Order.reservedUntil` and defaults to 15 minutes (`ORDER_RESERVATION_TTL_MINUTES`). Orders created before this feature have `reservedUntil = NULL` and are never expired.
 
 **Response from `POST /api/order`:**
 
@@ -41,12 +44,15 @@ src/admin/
 └── dto/
     ├── query-order.dto.ts       — list filters
     └── reject-payment.dto.ts    — rejection reason
+
+src/order/order-expiration/
+└── order-expiration.service.ts  — cron job that expires PENDING reservations
 ```
 
 ## Prisma Schema
 
 - `Payment` — `amount`, `status` (PENDING/APPROVED/REJECTED), `confirmedAt?`, `rejectedAt?`, `rejectReason?`, `orderId` (unique).
-- `Order` — `status` (PENDING/PAID/CANCELED), 1:1 relation with `Payment`.
+- `Order` — `status` (PENDING/PAID/CANCELED), `reservedUntil?` (reservation deadline), 1:1 relation with `Payment`, index on `[status, reservedUntil]`.
 - Removed models: `GatewayCustomer`, `PaymentAccount`, `PaymentWebhookEvent`.
 
 ## Admin Endpoints
@@ -66,6 +72,7 @@ All endpoints require JWT authentication + `ADMIN` role.
 |--------|---------|-------|---------|-------|
 | Confirm | `APPROVED` + `confirmedAt` | `PAID` | — | — |
 | Reject | `REJECTED` + `rejectedAt` + `rejectReason` | `CANCELED` | `CANCELED` | Restored |
+| Expire | `REJECTED` + `rejectedAt` + `rejectReason` | `CANCELED` | `CANCELED` | Restored |
 
 All transitions are idempotent: `markOrderPaid`/`releaseOrder` only act if `order.status === PENDING`.
 
@@ -77,8 +84,9 @@ All transitions are idempotent: `markOrderPaid`/`releaseOrder` only act if `orde
 
 ## Tests
 
-- `src/payment/payment.service.spec.ts` — `markOrderPaid` (idempotency), `releaseOrder` (stock restoration).
+- `src/payment/payment.service.spec.ts` — `markOrderPaid` (idempotency), `releaseOrder` (stock restoration, rejection reason).
 - `src/admin/admin.service.spec.ts` — `confirmPayment`, `rejectPayment`, `listOrders`, `getOrderDetail`.
 - `src/admin/admin.controller.spec.ts` — endpoint delegation tests.
 - `src/order/order.service.spec.ts` — order creation without gateway.
+- `src/order/order-expiration/order-expiration.service.spec.ts` — reservation expiry job.
 - `test/ticket.e2e-spec.ts` — full purchase flow.

@@ -5,7 +5,11 @@ jest.mock('generated/prisma/client', () => ({
     ORGANIZER: 'ORGANIZER',
     ADMIN: 'ADMIN',
   },
-  PaymentStatus: { PENDING: 'PENDING', APPROVED: 'APPROVED', REJECTED: 'REJECTED' },
+  PaymentStatus: {
+    PENDING: 'PENDING',
+    APPROVED: 'APPROVED',
+    REJECTED: 'REJECTED',
+  },
   OrderStatus: { PENDING: 'PENDING', PAID: 'PAID', CANCELED: 'CANCELED' },
 }));
 
@@ -335,14 +339,9 @@ describe('AdminService', () => {
   });
 
   describe('rejectPayment', () => {
-    it('should update payment and call paymentService.releaseOrder', async () => {
+    it('should delegate rejection to paymentService.releaseOrder with the reason', async () => {
       const payment = { id: 'pay-1', orderId: 'ord-1' };
       mockPrisma.payment.findUnique.mockResolvedValue(payment);
-      mockPrisma.payment.update.mockResolvedValue({
-        ...payment,
-        rejectReason: 'Insufficient proof',
-        rejectedAt: new Date(),
-      });
       mockPaymentService.releaseOrder.mockResolvedValue(undefined);
 
       await service.rejectPayment('ord-1', 'Insufficient proof');
@@ -350,36 +349,30 @@ describe('AdminService', () => {
       expect(mockPrisma.payment.findUnique).toHaveBeenCalledWith({
         where: { orderId: 'ord-1' },
       });
-      expect(mockPrisma.payment.update).toHaveBeenCalledWith({
-        where: { orderId: 'ord-1' },
-        data: {
-          rejectReason: 'Insufficient proof',
-          rejectedAt: expect.any(Date),
-        },
-      });
+      expect(mockPrisma.payment.update).not.toHaveBeenCalled();
       expect(mockPaymentService.releaseOrder).toHaveBeenCalledWith(
         'ord-1',
         'pay-1',
         'REJECTED',
         'CANCELED',
+        'Insufficient proof',
       );
     });
 
     it('should work without reason', async () => {
       const payment = { id: 'pay-1', orderId: 'ord-1' };
       mockPrisma.payment.findUnique.mockResolvedValue(payment);
-      mockPrisma.payment.update.mockResolvedValue(payment);
       mockPaymentService.releaseOrder.mockResolvedValue(undefined);
 
       await service.rejectPayment('ord-1');
 
-      expect(mockPrisma.payment.update).toHaveBeenCalledWith({
-        where: { orderId: 'ord-1' },
-        data: {
-          rejectReason: undefined,
-          rejectedAt: expect.any(Date),
-        },
-      });
+      expect(mockPaymentService.releaseOrder).toHaveBeenCalledWith(
+        'ord-1',
+        'pay-1',
+        'REJECTED',
+        'CANCELED',
+        undefined,
+      );
     });
 
     it('should throw NotFoundException when payment does not exist', async () => {
