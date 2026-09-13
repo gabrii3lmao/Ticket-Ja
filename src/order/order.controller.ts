@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Headers, Post } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -37,7 +37,8 @@ export class OrderController {
   create(
     @Body() dto: CreateOrderDto,
     @CurrentUser(ActiveUserPipe) user: UserPayload,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    return this.orderService.create(dto, user.id);
+    return this.orderService.create(dto, user.id, idempotencyKey);
   }
 }

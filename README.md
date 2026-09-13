@@ -13,11 +13,12 @@ src/
 ├── venue/          # Venue CRUD with ownership validation
 ├── event/          # Event lifecycle (DRAFT → PUBLISHED), ownership, pagination
 ├── category/       # Ticket categories with pricing and stock control
-├── order/          # Purchase flow with atomic stock reservation
+├── coupon/         # Event-scoped discount coupons
+├── order/          # Purchase flow with atomic stock reservation + reservation expiry job
 ├── payment/        # Payment confirmation service (manual admin flow)
 ├── ticket/         # QR code validation, usage tracking
 ├── admin/          # Organizer application review + payment confirmation (ADMIN only)
-├── health/         # Health check endpoint (Prisma + Terminus)
+├── health/         # Health check endpoint (Prisma + Redis)
 └── common/         # Shared filters, pipes, and utilities
 ```
 
@@ -26,6 +27,8 @@ src/
 - **Global guards** — JWT authentication and role-based access are enforced globally via `APP_GUARD`. Routes opt-out with `@Public()`.
 - **Atomic stock control** — Order creation uses Prisma's atomic `decrement` with optimistic locking (`WHERE quantity >= requested`) to prevent overselling under concurrency.
 - **Manual payment confirmation** — Payments are verified manually by administrators through the admin panel. No external payment gateways are integrated.
+- **Reservation expiry** — Orders are created with a `reservedUntil` deadline; a scheduled job cancels expired `PENDING` orders and releases stock.
+- **Idempotent checkout** — `POST /order` accepts an `Idempotency-Key` header to avoid duplicate orders on retries.
 - **Cache layer** — Redis-backed cache on read-heavy endpoints (events, venues, categories) with per-method interceptor control.
 - **Rate limiting** — Multi-tier throttling (short/medium/long) via `@nestjs/throttler` with Redis storage, stricter limits on auth and order endpoints.
 
@@ -67,7 +70,7 @@ yarn prisma db seed
 yarn start:dev
 ```
 
-The API runs at `http://localhost:3000`. Swagger docs are available at `http://localhost:3000/api` (disabled in production).
+The API runs at `http://localhost:3000`. Swagger docs are available at `http://localhost:3000/docs` (disabled in production).
 
 ## Seed Data
 
@@ -84,16 +87,17 @@ Default credentials: `admin@email.com` / `organizer@email.com` / `maria@email.co
 
 ## API Endpoints
 
-All endpoints are documented in Swagger at `/api`. The API is organized into these domain groups:
+All endpoints are documented in Swagger at `/docs` and in [`docs/API.md`](docs/API.md). The API is organized into these domain groups:
 
 - **Auth** — Register, sign in, refresh tokens, logout, account deletion
 - **Venue** — CRUD with ownership validation and pagination
 - **Event** — CRUD with status lifecycle management (DRAFT ↔ PUBLISHED)
 - **Category** — CRUD nested under events, with pricing and stock control
-- **Order** — Ticket purchase with atomic stock reservation
+- **Coupon** — Event-scoped discount coupons with usage limits
+- **Order** — Ticket purchase with atomic stock reservation and idempotency
 - **Ticket** — QR code validation, listing, usage tracking
 - **Admin** — Organizer application review + payment confirmation (ADMIN only)
-- **Health** — Service health check with Prisma ping
+- **Health** — Service health check (database + Redis)
 
 ## Payments (Manual Confirmation)
 
@@ -105,6 +109,17 @@ The payment flow is designed for simplicity and manual control:
 4. The administrator confirms (`PATCH /admin/payments-requests/:id/confirm`) or rejects (`PATCH /admin/payments-requests/:id/reject`) the payment.
 5. Confirmation marks the order as `PAID`. Rejection cancels the order, releases stock, and cancels tickets.
 6. **Reservation expiry** — each order is created with a `reservedUntil` timestamp (default 15 min, `ORDER_RESERVATION_TTL_MINUTES`). A scheduled job (`OrderExpirationService`, runs every minute) cancels orders that are still `PENDING` after that time, releasing stock and canceling tickets.
+
+### Idempotency
+
+`POST /order` accepts an optional `Idempotency-Key` header. Repeating the request with the same key (and authenticated user) returns the original order instead of creating a duplicate — useful for retries and double-clicks. The key is stored hashed (`sha256`) with a `[userId, idempotencyKey]` unique constraint, and concurrent requests with the same key are resolved to the first order created.
+
+```http
+POST /api/order
+Authorization: Bearer <token>
+Idempotency-Key: 7f3c... (any unique string per checkout attempt)
+Content-Type: application/json
+```
 
 ## Environment Variables
 
@@ -131,6 +146,13 @@ yarn build           # Production build
 yarn prisma studio    # Database browser
 yarn prisma db seed   # Seed database
 ```
+
+## Documentation
+
+- [`docs/API.md`](docs/API.md) — full endpoint reference with request/response examples.
+- [`docs/PAYMENTS.md`](docs/PAYMENTS.md) — manual payment flow, reservation expiry and idempotency.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — design decisions, request lifecycle and conventions.
+- [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) — known limitations and roadmap.
 
 ## License
 

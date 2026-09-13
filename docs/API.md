@@ -1,6 +1,6 @@
 # Ticket Já API — Complete API Reference
 
-All endpoints are prefixed with `/api`. Swagger docs are available at `/api/docs` in non-production environments.
+All endpoints are prefixed with `/api`. Swagger docs are available at `/docs` in non-production environments.
 
 ## Table of Contents
 
@@ -11,6 +11,7 @@ All endpoints are prefixed with `/api`. Swagger docs are available at `/api/docs
 - [Venue](#venue)
 - [Event](#event)
 - [Category](#category)
+- [Coupon](#coupon)
 - [Order](#order)
 - [Ticket](#ticket)
 - [Admin](#admin)
@@ -42,15 +43,18 @@ Swagger UI supports the **Authorize** button (padlock icon) to set the token glo
 
 ### `GET /api/health`
 
-Check application health (Prisma DB ping).
+Check application health (database ping + Redis).
 
-**Auth:** Requires API key header (`x-api-key`).
+**Auth:** Public, but when `NODE_ENV=production` the `x-api-key` header must match `HEALTH_CHECK_SECRET` (otherwise the endpoint returns `404` to avoid exposing it).
 
 **Response:**
 ```json
 {
   "status": "ok",
-  "info": { "prisma": { "status": "up" } }
+  "info": {
+    "database": { "status": "up" },
+    "redis": { "status": "up" }
+  }
 }
 ```
 
@@ -95,7 +99,14 @@ Register a new user.
 ```json
 {
   "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-  "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
+  "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
+  "user": {
+    "id": "user-uuid",
+    "name": "John Doe",
+    "email": "john@email.com",
+    "role": "BUYER",
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  }
 }
 ```
 
@@ -121,7 +132,13 @@ Sign in and get tokens.
 ```json
 {
   "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-  "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
+  "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
+  "user": {
+    "id": "user-uuid",
+    "name": "John Doe",
+    "email": "john@email.com",
+    "role": "BUYER"
+  }
 }
 ```
 
@@ -452,6 +469,87 @@ Delete a category. **`204`:** No content. **`404`:** Not found.
 
 ---
 
+## Coupon
+
+Coupons are **scoped to an event** and managed by the event owner (`ORGANIZER`) or an `ADMIN`. They are redeemed at checkout via `POST /api/order` (see [Order](#order)).
+
+### `POST /api/event/:eventId/coupon`
+
+Create a coupon for an event.
+
+**Auth:** `ORGANIZER` (owner) or `ADMIN`.
+
+**Body:**
+```json
+{
+  "code": "VIP10",
+  "description": "10% off for VIP customers",
+  "discountType": "PERCENTAGE",
+  "value": 10,
+  "expiresAt": "2026-12-31T23:59:59.000Z",
+  "maxUses": 100
+}
+```
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `code` | string | yes | Max 50 chars; stored uppercased and trimmed |
+| `description` | string | yes | |
+| `discountType` | enum | yes | `PERCENTAGE` or `FIXED` |
+| `value` | number | yes | Must be `> 0`; `PERCENTAGE` must be `<= 100` |
+| `expiresAt` | datetime | no | Must be in the future |
+| `maxUses` | integer | no | Min 1; unlimited when omitted |
+
+**Response `201`:** Created coupon with `currentUses: 0` and `active: true`.
+
+**Errors:** `400` — Invalid value; `403` — Event not yours; `404` — Event not found.
+
+---
+
+### `GET /api/event/:eventId/coupon`
+
+List coupons for an event (paginated).
+
+**Auth:** `ORGANIZER` (owner) or `ADMIN`.
+
+**Query params:**
+| Param | Type | Default | Notes |
+|-------|------|---------|-------|
+| `page` | integer | 1 | Min 1 |
+| `limit` | integer | 10 | 1–100 |
+| `code` | string | — | Partial match |
+| `discountType` | enum | — | `PERCENTAGE` or `FIXED` |
+
+---
+
+### `GET /api/event/:eventId/coupon/:id`
+
+Get a coupon by ID. **`404`:** Coupon not found in this event.
+
+**Auth:** `ORGANIZER` (owner) or `ADMIN`.
+
+---
+
+### `PATCH /api/event/:eventId/coupon/:id`
+
+Update a coupon. Body is the same as create (all fields optional) plus `active` to enable/disable it.
+
+```json
+{ "active": false }
+```
+
+**Auth:** `ORGANIZER` (owner) or `ADMIN`. **`404`:** Coupon not found in this event.
+
+---
+
+### `DELETE /api/event/:eventId/coupon/:id`
+
+Delete a coupon. **`204`:** No content. **`404`:** Coupon not found in this event.
+
+**Auth:** `ORGANIZER` (owner) or `ADMIN`.
+
+---
+
 ## Order
 
 ### `POST /api/order`
@@ -462,13 +560,19 @@ Purchase tickets. Creates order, tickets, and a payment record atomically.
 
 **Rate limit:** 5 requests/10 seconds.
 
+**Headers:**
+| Header | Required | Notes |
+|--------|----------|-------|
+| `Idempotency-Key` | no | Any unique string per checkout attempt. Replaying the same key returns the original order instead of creating a duplicate (see [Idempotency](PAYMENTS.md#idempotency)). |
+
 **Body:**
 ```json
 {
   "items": [
     { "categoryId": "uuid-of-category", "quantity": 2 },
     { "categoryId": "uuid-of-another-category", "quantity": 1 }
-  ]
+  ],
+  "couponCode": "VIP10"
 }
 ```
 
@@ -477,14 +581,17 @@ Purchase tickets. Creates order, tickets, and a payment record atomically.
 | `items` | array | yes | Non-empty |
 | `items[].categoryId` | string (UUID) | yes | Must exist, be on sale, and have stock |
 | `items[].quantity` | integer | yes | Min 1 |
+| `couponCode` | string | no | Must belong to the order's event and be active/valid |
 
 **Validation rules (enforced inside transaction):**
 - Category must exist.
+- All items must reference a **single event** (multi-event orders are rejected).
 - Event must be `PUBLISHED`.
 - Sales window must be active (between `salesStart` and `salesEnd`).
 - Event must not have started yet.
 - Stock must be sufficient (optimistic locking with `WHERE quantity >= requested`).
 - Duplicate `categoryId` entries are aggregated into a single order item.
+- If `couponCode` is provided, the coupon is validated (active, not expired, within `maxUses`, same event) and its use is consumed atomically.
 
 **Response `201`:**
 ```json
@@ -495,6 +602,7 @@ Purchase tickets. Creates order, tickets, and a payment record atomically.
   "fee": "25.00",
   "total": "525.00",
   "status": "PENDING",
+  "reservedUntil": "2026-01-01T00:15:00.000Z",
   "orderItems": [
     {
       "id": "oi-uuid",
@@ -519,9 +627,11 @@ Purchase tickets. Creates order, tickets, and a payment record atomically.
 }
 ```
 
-**Errors:** `400` — Insufficient stock, sales not started/ended, event not published, event already started. `404` — Category or user not found.
+**Errors:** `400` — Insufficient stock, sales not started/ended, event not published, event already started, multi-event order, invalid/expired/exhausted coupon. `404` — Category or user not found.
 
-**Note:** A 5% fee is automatically added to the total.
+**Notes:**
+- A 5% service fee is automatically added to the total (`fee`); `couponCode` reduces it via `discount` (`total = subtotal + fee - discount`).
+- The order is created as `PENDING` with a `reservedUntil` deadline (default 15 min). If the admin does not confirm/reject in time, a scheduled job cancels it and releases stock.
 
 ---
 
@@ -557,9 +667,9 @@ List the current user's tickets (paginated).
 
 ### `GET /api/ticket/validate/:code`
 
-Validate a ticket by its code (public endpoint for QR code scanning).
+Validate a ticket by its code (used by event staff when scanning the QR code).
 
-**Auth:** Public (no token needed).
+**Auth:** `ORGANIZER` (owner of the ticket's event) or `ADMIN`. Buyers cannot use this endpoint — they can view their own tickets via `GET /api/ticket/:id`.
 
 **Response `200`:**
 ```json
@@ -576,7 +686,7 @@ Validate a ticket by its code (public endpoint for QR code scanning).
 
 `valid` is `true` only when `ticket.status === "VALID"` AND `event.status === "PUBLISHED"`.
 
-**`404`:** Ticket not found.
+**Errors:** `403` — Not the event organizer/admin. `404` — Ticket not found.
 
 ---
 
@@ -592,9 +702,9 @@ Get ticket details.
 
 ### `PATCH /api/ticket/:id/use`
 
-Mark a ticket as used.
+Mark a ticket as used (check-in at the door).
 
-**Auth:** Any authenticated user (owner or admin).
+**Auth:** `ADMIN` or the `ORGANIZER` who owns the ticket's event. The ticket buyer cannot mark their own ticket as used.
 
 **Validation:** Ticket must be in `VALID` status. Uses optimistic locking (`UPDATE ... WHERE status = 'VALID'`).
 
@@ -603,7 +713,7 @@ Mark a ticket as used.
 { "count": 1 }
 ```
 
-**Errors:** `400` — Ticket already used or canceled. `403` — Not your ticket.
+**Errors:** `400` — Ticket already used or canceled. `403` — Not the event organizer/admin. `404` — Ticket not found.
 
 ---
 
@@ -850,23 +960,29 @@ curl http://localhost:3000/api/ticket \
 
 ### 12. Validate a Ticket (QR Code Scan)
 
+The event organizer (or an admin) scans the ticket code.
+
 ```bash
-curl http://localhost:3000/api/ticket/validate/<ticket_code>
+curl http://localhost:3000/api/ticket/validate/<ticket_code> \
+  -H "Authorization: Bearer <organizer_token>"
 ```
 
 Returns `valid: true` if the ticket is `VALID` and the event is `PUBLISHED`.
 
 ### 13. Mark Ticket as Used
 
+Only the event organizer or an admin can check in a ticket.
+
 ```bash
 curl -X PATCH http://localhost:3000/api/ticket/<ticketId>/use \
-  -H "Authorization: Bearer <buyer_token>"
+  -H "Authorization: Bearer <organizer_token>"
 ```
 
 ### 14. Verify Ticket is No Longer Valid
 
 ```bash
-curl http://localhost:3000/api/ticket/validate/<ticket_code>
+curl http://localhost:3000/api/ticket/validate/<ticket_code> \
+  -H "Authorization: Bearer <organizer_token>"
 ```
 
 Now returns `valid: false` with `status: "USED"`.

@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from 'src/prisma.service';
 import { Category, PaymentStatus, Prisma } from 'generated/prisma/client';
 import {
@@ -23,58 +23,99 @@ export class OrderService {
     private configService: ConfigService,
   ) {}
 
-  async create(createOrderDto: CreateOrderDto, userId: string) {
+  async create(
+    createOrderDto: CreateOrderDto,
+    userId: string,
+    idempotencyKey?: string,
+  ) {
     const couponCode = createOrderDto.couponCode?.trim().toUpperCase();
 
-    const { order, payment } = await this.prisma.$transaction(async (tx) => {
-      // Phase 1: validate and reserve stock
-      const itemsData = await this.reserveAndValidateStock(
-        tx,
-        createOrderDto.items,
-      );
+    const hashedKey = idempotencyKey
+      ? createHash('sha256').update(idempotencyKey).digest('hex')
+      : undefined;
 
-      // Phase 2: apply coupon (if any) and calculate amounts
-      const subtotal = this.calculateSubtotal(itemsData);
-
-      const coupon = couponCode
-        ? await this.resolveAndConsumeCoupon(
-            tx,
-            couponCode,
-            itemsData,
-            subtotal,
-          )
-        : null;
-
-      const fee = subtotal.times(this.FEE_RATE).toDecimalPlaces(2);
-      const discount = coupon?.discount ?? new Prisma.Decimal(0);
-      const total = subtotal.plus(fee).minus(discount);
-
-      const TTL =
-        this.configService.get<number>('ORDER_RESERVATION_TTL_MINUTES') ?? 15;
-
-      const reservedUntil = new Date(Date.now() + TTL * this.SIXTY_SECONDS);
-      // Phase 3: create Order + OrderItems + tickets
-      const order = await this.persistOrder(
-        tx,
+    if (hashedKey) {
+      const existingOrder = await this.findExistingOrderByIdempotencyKey(
         userId,
-        itemsData,
-        { subtotal, fee, discount, total },
-        coupon?.id,
-        reservedUntil,
+        hashedKey,
       );
 
-      const payment = await tx.payment.create({
-        data: {
-          orderId: order.id,
-          amount: order.total,
-          status: PaymentStatus.PENDING,
-        },
+      if (existingOrder && existingOrder.payment) {
+        return { order: existingOrder, payment: existingOrder.payment };
+      }
+    }
+
+    try {
+      const { order, payment } = await this.prisma.$transaction(async (tx) => {
+        // Phase 1: validate and reserve stock
+        const itemsData = await this.reserveAndValidateStock(
+          tx,
+          createOrderDto.items,
+        );
+
+        // Phase 2: apply coupon (if any) and calculate amounts
+        const subtotal = this.calculateSubtotal(itemsData);
+
+        const coupon = couponCode
+          ? await this.resolveAndConsumeCoupon(
+              tx,
+              couponCode,
+              itemsData,
+              subtotal,
+            )
+          : null;
+
+        const fee = subtotal.times(this.FEE_RATE).toDecimalPlaces(2);
+        const discount = coupon?.discount ?? new Prisma.Decimal(0);
+        const total = subtotal.plus(fee).minus(discount);
+
+        const TTL =
+          this.configService.get<number>('ORDER_RESERVATION_TTL_MINUTES') ?? 15;
+
+        const reservedUntil = new Date(Date.now() + TTL * this.SIXTY_SECONDS);
+        // Phase 3: create Order + OrderItems + tickets
+        const order = await this.persistOrder(
+          tx,
+          userId,
+          itemsData,
+          { subtotal, fee, discount, total },
+          coupon?.id,
+          reservedUntil,
+          hashedKey,
+        );
+
+        const payment = await tx.payment.create({
+          data: {
+            orderId: order.id,
+            amount: order.total,
+            status: PaymentStatus.PENDING,
+          },
+        });
+
+        return { order, payment };
       });
 
       return { order, payment };
-    });
+    } catch (error) {
+      // RACE CONDITION: P2002 (Unique constraint)
 
-    return { order, payment };
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        hashedKey
+      ) {
+        const existingOrder = await this.findExistingOrderByIdempotencyKey(
+          userId,
+          hashedKey,
+        );
+
+        if (existingOrder && existingOrder.payment) {
+          return { order: existingOrder, payment: existingOrder.payment };
+        }
+      }
+
+      throw error;
+    }
   }
 
   private async reserveAndValidateStock(
@@ -290,6 +331,7 @@ export class OrderService {
     },
     couponId?: string,
     reservedUntil?: Date,
+    hashedKey?: string,
   ) {
     const data: Prisma.OrderCreateInput = {
       user: { connect: { id: userId } },
@@ -297,6 +339,7 @@ export class OrderService {
       discount: amounts.discount,
       fee: amounts.fee,
       reservedUntil,
+      idempotencyKey: hashedKey,
       total: amounts.total,
       ...(couponId ? { coupon: { connect: { id: couponId } } } : {}),
       orderItems: {
@@ -315,6 +358,27 @@ export class OrderService {
     return tx.order.create({
       data,
       include: {
+        orderItems: {
+          include: { tickets: true },
+        },
+      },
+    });
+  }
+
+  private async findExistingOrderByIdempotencyKey(
+    userId: string,
+    idempotencyKey: string,
+  ) {
+    return this.prisma.order.findUnique({
+      where: {
+        userId_idempotencyKey: {
+          userId,
+          idempotencyKey,
+        },
+        payment: { isNot: null },
+      },
+      include: {
+        payment: true,
         orderItems: {
           include: { tickets: true },
         },

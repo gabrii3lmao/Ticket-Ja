@@ -48,7 +48,31 @@ describe('OrderController', () => {
         role: 'BUYER' as const,
       });
 
-      expect(orderService.create).toHaveBeenCalledWith(dto, 'user-uuid');
+      expect(orderService.create).toHaveBeenCalledWith(
+        dto,
+        'user-uuid',
+        undefined,
+      );
+      expect(result).toEqual(createdOrder);
+    });
+
+    it('should forward the idempotency key to orderService.create', async () => {
+      const dto = { items: [{ categoryId: 'cat-uuid', quantity: 2 }] };
+      const createdOrder = { id: 'order-uuid', total: 525 };
+
+      mockOrderService.create.mockResolvedValue(createdOrder);
+
+      const result = await controller.create(
+        dto,
+        { id: 'user-uuid', role: 'BUYER' as const },
+        'key-123',
+      );
+
+      expect(orderService.create).toHaveBeenCalledWith(
+        dto,
+        'user-uuid',
+        'key-123',
+      );
       expect(result).toEqual(createdOrder);
     });
   });

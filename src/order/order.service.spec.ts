@@ -39,7 +39,7 @@ class PrismaClientKnownRequestError extends Error {
 }
 
 jest.mock('generated/prisma/client', () => ({
-  Prisma: { Decimal: mockDecimal },
+  Prisma: { Decimal: mockDecimal, PrismaClientKnownRequestError },
   PrismaClient: class {},
   PaymentStatus: {
     PENDING: 'PENDING',
@@ -57,6 +57,7 @@ jest.mock('generated/prisma/internal/prismaNamespace', () => ({
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { OrderService } from './order.service';
 import { PrismaService } from 'src/prisma.service';
 import { ConfigService } from '@nestjs/config';
@@ -80,6 +81,9 @@ const mockTx = {
 
 const mockPrisma = {
   $transaction: jest.fn(),
+  order: {
+    findUnique: jest.fn(),
+  },
 };
 
 const mockConfig = {
@@ -614,6 +618,84 @@ describe('OrderService', () => {
       expect(mockTx.category.update).not.toHaveBeenCalled();
       expect(mockTx.order.create).not.toHaveBeenCalled();
       expect(mockTx.payment.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('create - idempotency', () => {
+    it('should hash and store the idempotency key on the order', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue(null);
+      mockTx.category.findMany.mockResolvedValue([baseCategory]);
+      mockTx.category.update.mockResolvedValue({
+        ...baseCategory,
+        quantity: 98,
+      });
+      let capturedData: { idempotencyKey?: string; total: unknown } | undefined;
+      mockTx.order.create.mockImplementation(
+        (args: { data: { idempotencyKey?: string; total: unknown } }) => {
+          capturedData = args.data;
+          return { id: 'order-uuid', total: args.data.total };
+        },
+      );
+      mockTx.payment.create.mockResolvedValue({ id: 'pay-uuid' });
+
+      await service.create(createDto, userId, 'key-123');
+
+      const expected = createHash('sha256').update('key-123').digest('hex');
+      expect(capturedData?.idempotencyKey).toBe(expected);
+    });
+
+    it('should return the existing order on replay without creating a new one', async () => {
+      const existing = {
+        id: 'order-existing',
+        payment: { id: 'pay-existing' },
+        orderItems: [],
+      };
+      mockPrisma.order.findUnique.mockResolvedValue(existing);
+
+      const result = await service.create(createDto, userId, 'key-123');
+
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(result).toEqual({ order: existing, payment: existing.payment });
+    });
+
+    it('should recover from a P2002 race by returning the existing order', async () => {
+      const existing = {
+        id: 'order-existing',
+        payment: { id: 'pay-existing' },
+        orderItems: [],
+      };
+      mockPrisma.order.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(existing);
+
+      const error = new PrismaClientKnownRequestError('Unique constraint', {
+        code: 'P2002',
+      });
+      mockPrisma.$transaction.mockImplementationOnce(() => {
+        throw error;
+      });
+
+      const result = await service.create(createDto, userId, 'key-123');
+
+      expect(result).toEqual({ order: existing, payment: existing.payment });
+      expect(mockPrisma.order.findUnique).toHaveBeenCalledTimes(2);
+    });
+
+    it('should not query idempotency when no key is provided', async () => {
+      mockTx.category.findMany.mockResolvedValue([baseCategory]);
+      mockTx.category.update.mockResolvedValue({
+        ...baseCategory,
+        quantity: 98,
+      });
+      mockTx.order.create.mockResolvedValue({
+        id: 'order-uuid',
+        total: new mockDecimal(525),
+      });
+      mockTx.payment.create.mockResolvedValue({ id: 'pay-uuid' });
+
+      await service.create(createDto, userId);
+
+      expect(mockPrisma.order.findUnique).not.toHaveBeenCalled();
     });
   });
 

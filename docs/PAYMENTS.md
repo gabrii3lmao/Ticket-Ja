@@ -6,7 +6,7 @@ The payment flow is **100% manual**, with no external payment gateway integratio
 
 **Flow:**
 
-1. `POST /api/order` creates the order, tickets, and a payment record in a single `$transaction` (status `PENDING`, stock decremented).
+1. `POST /api/order` creates the order, tickets, and a payment record in a single `$transaction` (status `PENDING`, stock decremented). Optionally accepts an `Idempotency-Key` header (see below).
 2. The order appears in the admin panel (`GET /api/admin/payments-requests`).
 3. The administrator verifies the payment manually (e.g., bank transfer, PIX confirmation, cash).
 4. The administrator confirms (`PATCH /api/admin/payments-requests/:id/confirm`) or rejects (`PATCH /api/admin/payments-requests/:id/reject`) the payment.
@@ -31,6 +31,15 @@ The reservation deadline is stored on `Order.reservedUntil` and defaults to 15 m
 }
 ```
 
+## Idempotency
+
+`POST /api/order` accepts an optional `Idempotency-Key` header. When provided:
+
+- The key is hashed (`sha256`) and stored on `Order.idempotencyKey`, with a unique constraint on `[userId, idempotencyKey]`.
+- Replaying the same key (same user) returns the original order/payment instead of creating a duplicate (always `201`).
+- Concurrent requests with the same key are resolved to the first committed order (the unique constraint triggers `P2002`, which the service catches and maps back to the existing order).
+- Requests without the header behave as before and are never deduplicated.
+
 ## Module Structure
 
 ```
@@ -52,7 +61,7 @@ src/order/order-expiration/
 ## Prisma Schema
 
 - `Payment` — `amount`, `status` (PENDING/APPROVED/REJECTED), `confirmedAt?`, `rejectedAt?`, `rejectReason?`, `orderId` (unique).
-- `Order` — `status` (PENDING/PAID/CANCELED), `reservedUntil?` (reservation deadline), 1:1 relation with `Payment`, index on `[status, reservedUntil]`.
+- `Order` — `status` (PENDING/PAID/CANCELED), `reservedUntil?` (reservation deadline), `idempotencyKey?` (hashed), 1:1 relation with `Payment`, index on `[status, reservedUntil]`, unique on `[userId, idempotencyKey]`.
 - Removed models: `GatewayCustomer`, `PaymentAccount`, `PaymentWebhookEvent`.
 
 ## Admin Endpoints

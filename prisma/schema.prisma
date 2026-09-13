@@ -124,16 +124,17 @@ model Category {
 }
 
 model Order {
-  id            String      @id @default(uuid())
-  subtotal      Decimal     @db.Decimal(10, 2)
-  discount      Decimal     @default(0) @db.Decimal(10, 2)
-  fee           Decimal     @default(0) @db.Decimal(10, 2)
-  total         Decimal     @db.Decimal(10, 2)
-  status        OrderStatus @default(PENDING)
-  reservedUntil DateTime?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  orderItems    OrderItem[]
+  id             String      @id @default(uuid())
+  idempotencyKey String?     @db.VarChar(64)
+  subtotal       Decimal     @db.Decimal(10, 2)
+  discount       Decimal     @default(0) @db.Decimal(10, 2)
+  fee            Decimal     @default(0) @db.Decimal(10, 2)
+  total          Decimal     @db.Decimal(10, 2)
+  status         OrderStatus @default(PENDING)
+  reservedUntil  DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  orderItems     OrderItem[]
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
@@ -144,6 +145,7 @@ model Order {
 
   @@index([userId])
   @@index([status, reservedUntil])
+  @@unique([userId, idempotencyKey])
 }
 
 model OrderItem {
