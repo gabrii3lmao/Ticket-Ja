@@ -23,6 +23,22 @@ FROM development AS builder
 RUN yarn build
 
 
+# ---------- Client ----------
+FROM node:24-alpine AS client-builder
+
+RUN corepack enable
+
+WORKDIR /client
+
+COPY client/package.json client/yarn.lock client/.yarnrc.yml ./
+
+RUN yarn install --immutable
+
+COPY client/ ./
+
+RUN yarn generate
+
+
 # ---------- Produção ----------
 FROM node:24-alpine AS production
 
@@ -37,6 +53,7 @@ RUN yarn install --immutable
 RUN yarn prisma generate
 
 COPY --from=builder /app/dist ./dist
+COPY --from=client-builder /client/.output/public ./public
 
 EXPOSE 3000
 

@@ -20,10 +20,24 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import { CouponModule } from './coupon/coupon.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
+import { existsSync } from 'fs';
+
+const clientDist =
+  process.env.CLIENT_DIST_PATH ?? join(__dirname, '..', '..', 'public');
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ...(existsSync(clientDist)
+      ? [
+          ServeStaticModule.forRoot({
+            rootPath: clientDist,
+            exclude: ['/api/{*path}', '/docs/{*path}', '/docs-json'],
+          }),
+        ]
+      : []),
     CacheModule.registerAsync({
       inject: [ConfigService],
       isGlobal: true,

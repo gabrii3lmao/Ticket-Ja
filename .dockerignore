@@ -1,2 +1,8 @@
 node_modules
 dist
+client/node_modules
+client/.output
+client/.nuxt
+client/.nitro
+client/.data
+client/dist
