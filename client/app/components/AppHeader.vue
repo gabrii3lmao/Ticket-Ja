@@ -17,6 +17,20 @@
         >
           Eventos
         </NuxtLink>
+        <NuxtLink
+          v-if="user?.role === 'ADMIN'"
+          to="/admin"
+          class="text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
+        >
+          Admin
+        </NuxtLink>
+        <NuxtLink
+          v-if="user?.role === 'ORGANIZER' || user?.role === 'ADMIN'"
+          :to="user?.role === 'ADMIN' ? '/admin' : '/organizador'"
+          class="text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
+        >
+          Organizador
+        </NuxtLink>
       </nav>
 
       <div class="flex items-center gap-3">
@@ -102,6 +116,33 @@
               <UIcon name="i-lucide-ticket" class="h-4 w-4" />
               Meus Ingressos
             </NuxtLink>
+            <NuxtLink
+              v-if="user?.role === 'ADMIN'"
+              to="/admin"
+              class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800"
+              @click="mobileMenuOpen = false"
+            >
+              <UIcon name="i-lucide-shield" class="h-4 w-4" />
+              Painel Admin
+            </NuxtLink>
+            <NuxtLink
+              v-if="user?.role === 'ORGANIZER'"
+              to="/organizador"
+              class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800"
+              @click="mobileMenuOpen = false"
+            >
+              <UIcon name="i-lucide-calendar" class="h-4 w-4" />
+              Painel Organizador
+            </NuxtLink>
+            <NuxtLink
+              v-if="user?.role === 'BUYER'"
+              to="/minha-conta/organizador"
+              class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800"
+              @click="mobileMenuOpen = false"
+            >
+              <UIcon name="i-lucide-briefcase" class="h-4 w-4" />
+              Tornar Organizador
+            </NuxtLink>
             <UButton
               color="error"
               variant="ghost"
@@ -139,16 +180,27 @@
 const { user, isAuthenticated, logout } = useAuth()
 const mobileMenuOpen = ref(false)
 
-const userMenuItems = computed(() => [
-  [
-    { label: 'Minha Conta', icon: 'i-lucide-user', to: '/minha-conta' },
-    { label: 'Meus Ingressos', icon: 'i-lucide-ticket', to: '/minha-conta/ingressos' },
-    { label: 'Meus Pedidos', icon: 'i-lucide-receipt', to: '/minha-conta/pedidos' },
-  ],
-  [
-    { label: 'Sair', icon: 'i-lucide-log-out', onClick: () => logout() },
-  ],
-])
+const userMenuItems = computed(() => {
+  const items = [
+    [
+      { label: 'Minha Conta', icon: 'i-lucide-user', to: '/minha-conta' },
+      { label: 'Meus Ingressos', icon: 'i-lucide-ticket', to: '/minha-conta/ingressos' },
+      { label: 'Meus Pedidos', icon: 'i-lucide-receipt', to: '/minha-conta/pedidos' },
+    ],
+  ]
+
+  if (user.value?.role === 'ADMIN') {
+    items[0].push({ label: 'Painel Admin', icon: 'i-lucide-shield', to: '/admin' })
+  } else if (user.value?.role === 'ORGANIZER') {
+    items[0].push({ label: 'Painel Organizador', icon: 'i-lucide-calendar', to: '/organizador' })
+  } else {
+    items[0].push({ label: 'Tornar Organizador', icon: 'i-lucide-briefcase', to: '/minha-conta/organizador' })
+  }
+
+  items.push([{ label: 'Sair', icon: 'i-lucide-log-out', onClick: () => logout() }])
+
+  return items
+})
 
 function handleLogout() {
   mobileMenuOpen.value = false

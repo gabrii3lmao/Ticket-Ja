@@ -33,6 +33,24 @@ export function useApi() {
     }
   }
 
+  async function apiPut<T>(url: string, body?: unknown): Promise<T> {
+    try {
+      return await client.value.put<T>(url, body)
+    } catch (error: unknown) {
+      if (isUnauthorizedError(error)) handle401()
+      throw error
+    }
+  }
+
+  async function apiPatch<T>(url: string, body?: unknown): Promise<T> {
+    try {
+      return await client.value.patch<T>(url, body)
+    } catch (error: unknown) {
+      if (isUnauthorizedError(error)) handle401()
+      throw error
+    }
+  }
+
   async function apiDel<T>(url: string, body?: unknown): Promise<T> {
     try {
       return await client.value.del<T>(url, body)
@@ -42,7 +60,7 @@ export function useApi() {
     }
   }
 
-  return { apiGet, apiPost, apiDel, client }
+  return { apiGet, apiPost, apiPut, apiPatch, apiDel, client }
 }
 
 function isUnauthorizedError(error: unknown): boolean {
