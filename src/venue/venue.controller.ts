@@ -57,6 +57,20 @@ export class VenueController {
     return this.venueService.findAll(query);
   }
 
+  @Get('mine')
+  @ApiBearerAuth()
+  @Roles(Role.ADMIN, Role.ORGANIZER)
+  @ApiOperation({
+    summary: 'List venues for management (own venues for organizers)',
+  })
+  @ApiResponse({ status: 200, description: 'Returns paginated venues' })
+  findManaged(
+    @Query() query: QueryVenueDto,
+    @CurrentUser(ActiveUserPipe) user: UserPayload,
+  ) {
+    return this.venueService.findManaged(query, user);
+  }
+
   @Public()
   @Get(':id')
   @UseInterceptors(CacheInterceptor)

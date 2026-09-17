@@ -21,11 +21,48 @@ import { QueryOrganizerApplication } from './dto/query-organizer-application.dto
 import { RejectReasonDto } from './dto/rejected-reason.dto';
 import { QueryOrderDto } from './dto/query-order.dto';
 import { RejectPaymentDto } from './dto/reject-payment.dto';
+import { EventService } from 'src/event/event.service';
+import { VenueService } from 'src/venue/venue.service';
+import { QueryManagedEventDto } from 'src/event/dto/query-managed-event.dto';
+import { QueryVenueDto } from 'src/venue/dto/query-venue.dto';
+import {
+  CurrentUser,
+  type UserPayload,
+} from 'src/auth/decorators/current-user.decorator';
+import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
 
 @ApiTags('admin')
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly eventService: EventService,
+    private readonly venueService: VenueService,
+  ) {}
+
+  @Get('events')
+  @ApiBearerAuth()
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'List all events for management' })
+  @ApiResponse({ status: 200, description: 'Returns paginated events' })
+  listEvents(
+    @Query() query: QueryManagedEventDto,
+    @CurrentUser(ActiveUserPipe) user: UserPayload,
+  ) {
+    return this.eventService.findManaged(query, user);
+  }
+
+  @Get('venues')
+  @ApiBearerAuth()
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'List all venues for management' })
+  @ApiResponse({ status: 200, description: 'Returns paginated venues' })
+  listVenues(
+    @Query() query: QueryVenueDto,
+    @CurrentUser(ActiveUserPipe) user: UserPayload,
+  ) {
+    return this.venueService.findManaged(query, user);
+  }
 
   @Get('organizer-application')
   @ApiBearerAuth()

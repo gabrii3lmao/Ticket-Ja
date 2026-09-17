@@ -254,6 +254,37 @@ describe('VenueService', () => {
     });
   });
 
+  describe('findManaged', () => {
+    it('should scope venues to the organizer own profile', async () => {
+      prisma.$transaction.mockResolvedValue([[], 0]);
+
+      await service.findManaged({ name: 'Mara' }, user);
+
+      expect(prisma.venue.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            name: { contains: 'Mara', mode: 'insensitive' },
+            organizerProfile: { userId: user.id },
+          }),
+        }),
+      );
+    });
+
+    it('should not scope venues for admins', async () => {
+      prisma.$transaction.mockResolvedValue([[], 0]);
+
+      await service.findManaged({}, adminUser);
+
+      expect(prisma.venue.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.not.objectContaining({
+            organizerProfile: expect.anything(),
+          }),
+        }),
+      );
+    });
+  });
+
   describe('update', () => {
     const ownedVenue = (overrides: Record<string, unknown> = {}) => ({
       id: '1',

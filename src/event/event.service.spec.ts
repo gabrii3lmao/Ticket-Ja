@@ -357,6 +357,52 @@ describe('EventService', () => {
     });
   });
 
+  describe('findManaged', () => {
+    it('should filter by status and scope organizers to their own events', async () => {
+      prisma.$transaction.mockResolvedValue([[], 0]);
+
+      await service.findManaged({ status: 'DRAFT', name: 'Rock' }, user);
+
+      expect(prisma.event.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'DRAFT',
+            name: { contains: 'Rock', mode: 'insensitive' },
+            organizerProfile: { userId: user.id },
+          }),
+        }),
+      );
+    });
+
+    it('should not scope events for admins', async () => {
+      prisma.$transaction.mockResolvedValue([[], 0]);
+
+      await service.findManaged({}, adminUser);
+
+      expect(prisma.event.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.not.objectContaining({
+            organizerProfile: expect.anything(),
+          }),
+        }),
+      );
+    });
+
+    it('should return all statuses when no status filter is provided', async () => {
+      const events = [{ id: '1', status: 'FINISHED' }];
+      prisma.$transaction.mockResolvedValue([events, 1]);
+
+      const result = await service.findManaged({}, adminUser);
+
+      expect(prisma.event.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: undefined }),
+        }),
+      );
+      expect(result.data).toEqual(events);
+    });
+  });
+
   describe('update', () => {
     const ownedEvent = (overrides: Record<string, unknown> = {}) => ({
       id: '1',

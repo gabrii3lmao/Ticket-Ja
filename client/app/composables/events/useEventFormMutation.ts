@@ -19,8 +19,7 @@ export function useEventFormMutation() {
   const isPending = ref(false)
 
   function invalidate() {
-    queryClient.invalidateQueries({ queryKey: ['admin-events'] })
-    queryClient.invalidateQueries({ queryKey: ['organizer-events'] })
+    queryClient.invalidateQueries({ queryKey: ['managed-events'] })
   }
 
   async function create(data: EventInput) {

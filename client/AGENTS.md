@@ -37,6 +37,7 @@ yarn preview
 - All request/response types live in `app/types/` (`api.ts` for shared entities, `admin.ts`/`organizer.ts` for role-specific payloads). Backend sends Prisma `Decimal` money fields as **strings** (e.g. `price`, `total`), but `CheckoutItem.unitPrice` is a `number` — mind the conversion.
 - Data fetching uses `@tanstack/vue-query` (`useQuery`/`useMutation`), imported directly from `@tanstack/vue-query`. That package is **not** a direct dependency; it comes transitively from `@peterbud/nuxt-query`. Keep `@peterbud/nuxt-query` installed, and follow the existing composable-per-query pattern (`useEventsQuery`, `useMyOrdersQuery`, `useCreateOrderMutation`, …). Invalidate `['my-tickets']` / `['my-orders']` after order mutations. Note `useAsyncQuery` is **not** provided by `@peterbud/nuxt-query`; use `useQuery`-based composables instead.
 - API errors expose `error.data.message` (string or string[]); use the shared `getErrorMessage` helper in `app/utils/error.ts`.
+- Public catalog endpoints only expose published/global data: `GET /event` returns `PUBLISHED` events only and `GET /venue` returns all venues. The management screens use role-routed endpoints via `useAdminEventsQuery`/`useAdminVenuesQuery`/`useVenuesQuery`: `ADMIN` -> `/admin/events` + `/admin/venues`, `ORGANIZER` -> `/event/mine` + `/venue/mine` (own resources, all statuses). `GET /event` rejects a `status` param, so never send it there; empty filter params are stripped by `utils/api.ts`.
 
 ## Auth & routing
 

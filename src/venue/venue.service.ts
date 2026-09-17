@@ -26,26 +26,41 @@ export class VenueService {
     const {
       page = 1,
       limit = 10,
-      city,
-      maxCapacity, // Corrigido o typo
-      minCapacity, // Corrigido o typo
-      name,
       sortBy = 'createdAt',
       sortOrder = 'desc',
-      state,
+    } = query;
+    const skip = (page - 1) * limit;
+    const where = this.buildVenueWhere(query);
+
+    const [venues, total] = await this.prisma.$transaction([
+      this.prisma.venue.findMany({
+        skip,
+        take: limit,
+        where,
+        orderBy: { [sortBy]: sortOrder },
+      }),
+      this.prisma.venue.count({ where }),
+    ]);
+
+    return {
+      data: venues,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  async findManaged(query: QueryVenueDto, user: UserPayload) {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
     } = query;
     const skip = (page - 1) * limit;
 
-    const capacityFilter = {
-      ...(minCapacity && { gte: Number(minCapacity) }),
-      ...(maxCapacity && { lte: Number(maxCapacity) }),
-    };
-
     const where: Prisma.VenueWhereInput = {
-      name: name ? { contains: name, mode: 'insensitive' } : undefined,
-      city: city ? { contains: city, mode: 'insensitive' } : undefined,
-      state: state || undefined,
-      ...(Object.keys(capacityFilter).length && { capacity: capacityFilter }),
+      ...this.buildVenueWhere(query),
+      organizerProfile:
+        user.role === Role.ORGANIZER ? { userId: user.id } : undefined,
     };
 
     const [venues, total] = await this.prisma.$transaction([
@@ -61,6 +76,22 @@ export class VenueService {
     return {
       data: venues,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  private buildVenueWhere(query: QueryVenueDto): Prisma.VenueWhereInput {
+    const { city, maxCapacity, minCapacity, name, state } = query;
+
+    const capacityFilter = {
+      ...(minCapacity && { gte: Number(minCapacity) }),
+      ...(maxCapacity && { lte: Number(maxCapacity) }),
+    };
+
+    return {
+      name: name ? { contains: name, mode: 'insensitive' } : undefined,
+      city: city ? { contains: city, mode: 'insensitive' } : undefined,
+      state: state || undefined,
+      ...(Object.keys(capacityFilter).length && { capacity: capacityFilter }),
     };
   }
 

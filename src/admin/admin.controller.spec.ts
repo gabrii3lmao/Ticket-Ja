@@ -10,6 +10,9 @@ jest.mock('generated/prisma/client', () => ({
 import { Test, TestingModule } from '@nestjs/testing';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
+import { EventService } from 'src/event/event.service';
+import { VenueService } from 'src/venue/venue.service';
+import { UserService } from 'src/user/user.service';
 
 const mockAdminService = {
   listOrganizerApplications: jest.fn(),
@@ -21,18 +24,41 @@ const mockAdminService = {
   rejectPayment: jest.fn(),
 };
 
+const mockEventService = {
+  findManaged: jest.fn(),
+};
+
+const mockVenueService = {
+  findManaged: jest.fn(),
+};
+
+const mockUserService = {
+  findById: jest.fn(),
+};
+
+const adminUser = { id: 'admin-uuid', role: 'ADMIN' as const };
+
 describe('AdminController', () => {
   let controller: AdminController;
   let adminService: typeof mockAdminService;
+  let eventService: typeof mockEventService;
+  let venueService: typeof mockVenueService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AdminController],
-      providers: [{ provide: AdminService, useValue: mockAdminService }],
+      providers: [
+        { provide: AdminService, useValue: mockAdminService },
+        { provide: EventService, useValue: mockEventService },
+        { provide: VenueService, useValue: mockVenueService },
+        { provide: UserService, useValue: mockUserService },
+      ],
     }).compile();
 
     controller = module.get<AdminController>(AdminController);
     adminService = module.get(AdminService);
+    eventService = module.get(EventService);
+    venueService = module.get(VenueService);
   });
 
   afterEach(() => {
@@ -41,6 +67,32 @@ describe('AdminController', () => {
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
+  });
+
+  describe('event & venue management', () => {
+    it('should list managed events', async () => {
+      const query = { page: 1, limit: 15, status: 'DRAFT' as const };
+      const expected = { data: [], meta: {} };
+
+      eventService.findManaged.mockResolvedValue(expected);
+
+      const result = await controller.listEvents(query, adminUser);
+
+      expect(eventService.findManaged).toHaveBeenCalledWith(query, adminUser);
+      expect(result).toEqual(expected);
+    });
+
+    it('should list managed venues', async () => {
+      const query = { page: 1, limit: 15 };
+      const expected = { data: [], meta: {} };
+
+      venueService.findManaged.mockResolvedValue(expected);
+
+      const result = await controller.listVenues(query, adminUser);
+
+      expect(venueService.findManaged).toHaveBeenCalledWith(query, adminUser);
+      expect(result).toEqual(expected);
+    });
   });
 
   describe('organizer applications', () => {

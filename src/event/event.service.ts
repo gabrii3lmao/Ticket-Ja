@@ -9,6 +9,7 @@ import { CreateEventDto } from './dto/create-event.dto';
 import { Event, EventStatus, Prisma, Role } from 'generated/prisma/client';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { QueryEventDto } from './dto/query-event.dto';
+import { QueryManagedEventDto } from './dto/query-managed-event.dto';
 import { assertEndDateAfterStartDate } from 'src/common/validators/event.validator';
 import type { UserPayload } from 'src/auth/decorators/current-user.decorator';
 
@@ -80,6 +81,42 @@ export class EventService {
         skip,
         take: Number(limit),
         orderBy,
+        include: { venue: true, categories: true },
+        where,
+      }),
+      this.prisma.event.count({ where }),
+    ]);
+
+    return {
+      data: events,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  async findManaged(query: QueryManagedEventDto, user: UserPayload) {
+    const {
+      page = 1,
+      limit = 10,
+      name,
+      status,
+      sortOrder = 'desc',
+      sortBy = 'createdAt',
+    } = query;
+
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.EventWhereInput = {
+      status: status ?? undefined,
+      name: name ? { contains: name, mode: 'insensitive' } : undefined,
+      organizerProfile:
+        user.role === Role.ORGANIZER ? { userId: user.id } : undefined,
+    };
+
+    const [events, total] = await this.prisma.$transaction([
+      this.prisma.event.findMany({
+        skip,
+        take: Number(limit),
+        orderBy: { [sortBy]: sortOrder },
         include: { venue: true, categories: true },
         where,
       }),

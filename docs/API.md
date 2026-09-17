@@ -258,6 +258,18 @@ List venues (paginated, cached).
 
 ---
 
+### `GET /api/venue/mine`
+
+List venues for management. An `ORGANIZER` gets only their own venues; an `ADMIN` gets all venues.
+
+**Auth:** Bearer, `ORGANIZER` or `ADMIN`.
+
+**Query params:** Same as `GET /api/venue`.
+
+**Response `200`:** Same paginated shape as `GET /api/venue`.
+
+---
+
 ### `GET /api/venue/:id`
 
 Get venue by ID (cached).
@@ -345,6 +357,26 @@ List events (paginated, cached).
 | `endDate` | datetime | — | |
 | `sortBy` | string | `createdAt` | |
 | `sortOrder` | string | `desc` | |
+
+---
+
+### `GET /api/event/mine`
+
+List events for management. An `ORGANIZER` gets only their own events (all statuses); an `ADMIN` gets all events.
+
+**Auth:** Bearer, `ORGANIZER` or `ADMIN`.
+
+**Query params:**
+| Param | Type | Default | Notes |
+|-------|------|---------|-------|
+| `page` | integer | 1 | |
+| `limit` | integer | 10 | 1–100 |
+| `name` | string | — | Partial match |
+| `status` | enum | — | `DRAFT`, `PUBLISHED`, `FINISHED`, `CANCELED` |
+| `sortBy` | string | `createdAt` | |
+| `sortOrder` | string | `desc` | |
+
+**Response `200`:** Same paginated shape as `GET /api/event`.
 
 ---
 
@@ -720,6 +752,22 @@ Mark a ticket as used (check-in at the door).
 ## Admin
 
 All admin endpoints require the `ADMIN` role.
+
+### `GET /api/admin/events`
+
+List all events (any status). Same query params as `GET /api/event/mine`.
+
+**Response `200`:** Paginated events.
+
+---
+
+### `GET /api/admin/venues`
+
+List all venues. Same query params as `GET /api/venue`.
+
+**Response `200`:** Paginated venues.
+
+---
 
 ### `GET /api/admin/organizer-application`
 

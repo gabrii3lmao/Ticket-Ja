@@ -28,6 +28,7 @@ import {
 import { Public } from 'src/auth/decorators/public.decorator';
 import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
 import { QueryEventDto } from './dto/query-event.dto';
+import { QueryManagedEventDto } from './dto/query-managed-event.dto';
 import { UpdateEventStatusDto } from './dto/update-event-status.dto';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { Role } from 'generated/prisma/enums';
@@ -58,6 +59,20 @@ export class EventController {
   @ApiResponse({ status: 200, description: 'Returns list of events' })
   getAll(@Query() paginationDto: QueryEventDto) {
     return this.eventService.findAll(paginationDto);
+  }
+
+  @Get('mine')
+  @ApiBearerAuth()
+  @Roles(Role.ADMIN, Role.ORGANIZER)
+  @ApiOperation({
+    summary: 'List events for management (own events for organizers)',
+  })
+  @ApiResponse({ status: 200, description: 'Returns paginated events' })
+  getManaged(
+    @Query() query: QueryManagedEventDto,
+    @CurrentUser(ActiveUserPipe) user: UserPayload,
+  ) {
+    return this.eventService.findManaged(query, user);
   }
 
   @Public()

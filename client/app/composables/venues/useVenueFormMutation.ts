@@ -19,9 +19,7 @@ export function useVenueFormMutation() {
   const isPending = ref(false);
 
   function invalidate() {
-    queryClient.invalidateQueries({ queryKey: ['admin-venues'] });
-    queryClient.invalidateQueries({ queryKey: ['organizer-venues'] });
-    queryClient.invalidateQueries({ queryKey: ['venues'] });
+    queryClient.invalidateQueries({ queryKey: ['managed-venues'] })
   }
 
   async function create(data: VenueInput) {
