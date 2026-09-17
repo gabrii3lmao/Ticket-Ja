@@ -3,13 +3,18 @@ import { useToast } from '#imports';
 
 export function useAdminApplicationMutation() {
   const queryClient = useQueryClient();
-  const { apiPost } = useApi();
+  const { apiPatch } = useApi();
   const toast = useToast();
 
+  function invalidate() {
+    queryClient.invalidateQueries({ queryKey: ['admin-applications'] });
+    queryClient.invalidateQueries({ queryKey: ['admin-application'] });
+  }
+
   function approve(id: string) {
-    return apiPost(`/admin/organizer-application/${id}/approve`)
+    return apiPatch(`/admin/organizer-application/${id}/approve`)
       .then(() => {
-        queryClient.invalidateQueries({ queryKey: ['admin-applications'] });
+        invalidate();
         toast.add({ title: 'Candidatura aprovada!', color: 'success' });
       })
       .catch((error) => {
@@ -23,11 +28,11 @@ export function useAdminApplicationMutation() {
   }
 
   function reject(id: string, reason?: string) {
-    return apiPost(`/admin/organizer-application/${id}/reject`, {
+    return apiPatch(`/admin/organizer-application/${id}/reject`, {
       rejectReason: reason,
     })
       .then(() => {
-        queryClient.invalidateQueries({ queryKey: ['admin-applications'] });
+        invalidate();
         toast.add({ title: 'Candidatura rejeitada', color: 'warning' });
       })
       .catch((error) => {

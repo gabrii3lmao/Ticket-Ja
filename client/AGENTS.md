@@ -29,6 +29,8 @@ yarn preview
 - Composables at the root of `app/composables/` and Pinia stores under `app/stores/` are auto-imported. **Subfolders of `composables/` are not scanned by default** — every domain folder is registered in `nuxt.config.ts` under `imports.dirs`; add a folder there when you create one. Pages do **not** import `useCreateOrderMutation`, `useApi`, `formatDate`, etc.
 - Pinia stores use the setup style (`defineStore('x', () => { ... })`).
 - The admin and organizer CRUD screens share thin page wrappers over `components/event/EventListPage.vue` / `EventFormPage.vue` and `components/venue/VenueListPage.vue` / `VenueFormPage.vue`; only `definePageMeta` (middleware) and `base-path` differ. Edit the shared component, not the page.
+- Event categories are managed by `components/event/CategoryManager.vue`, mounted at `/admin/eventos/categorias/:id` and `/organizador/eventos/categorias/:id` (the `eventId` is the route param). An event must have at least one category before it can be `PUBLISHED`; on create, `EventFormPage` always creates a `DRAFT` and redirects to that page. The `EventForm` status select only offers valid transitions via `allowed-statuses`.
+- Admin approval/confirmation actions use `PATCH` (`/admin/organizer-application/:id/{approve,reject}`, `/admin/payments-requests/:id/{confirm,reject}`); the admin GET endpoints skip the `short` throttler to avoid 429 on pages that fire several queries.
 
 ## API access
 

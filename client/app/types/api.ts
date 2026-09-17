@@ -53,6 +53,15 @@ export interface Category {
   createdAt: string
 }
 
+export interface CategoryInput {
+  name: string
+  description?: string
+  price: number
+  quantity: number
+  salesStart?: string
+  salesEnd?: string
+}
+
 export interface Event {
   id: string
   name: string

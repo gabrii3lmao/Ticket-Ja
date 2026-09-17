@@ -74,14 +74,10 @@ definePageMeta({
 })
 
 const route = useRoute()
-const appId = route.params.id as string
-const { apiGet } = useApi()
+const appId = computed(() => (route.params.id as string) || '')
 const { approve, reject } = useAdminApplicationMutation()
 
-const { data: application, isLoading: loading } = useQuery({
-  queryKey: ['admin-application', appId],
-  queryFn: () => apiGet(`/admin/organizer-application/${appId}`),
-})
+const { data: application, isLoading: loading } = useAdminApplicationQuery(appId)
 
 const isApproving = ref(false)
 const isRejecting = ref(false)
@@ -91,7 +87,7 @@ const rejectReason = ref('')
 async function onApprove() {
   isApproving.value = true
   try {
-    await approve(appId)
+    await approve(appId.value)
     navigateTo('/admin/organizadores')
   } finally {
     isApproving.value = false
@@ -101,7 +97,7 @@ async function onApprove() {
 async function onReject() {
   isRejecting.value = true
   try {
-    await reject(appId, rejectReason.value || undefined)
+    await reject(appId.value, rejectReason.value || undefined)
     navigateTo('/admin/organizadores')
   } finally {
     isRejecting.value = false

@@ -46,7 +46,7 @@
       <UFormField label="Status" name="status" :error="errors.status">
         <USelect
           v-model="status"
-          :items="statusOptions"
+          :items="availableStatusOptions"
           size="lg"
           class="w-full"
         />
@@ -86,6 +86,7 @@ const props = defineProps<{
   venues: VenueOption[]
   loading?: boolean
   showStatus?: boolean
+  allowedStatuses?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -145,6 +146,12 @@ const statusOptions = [
   { label: 'Finalizado', value: 'FINISHED' },
   { label: 'Cancelado', value: 'CANCELED' },
 ]
+
+const availableStatusOptions = computed(() =>
+  props.allowedStatuses
+    ? statusOptions.filter((option) => props.allowedStatuses!.includes(option.value))
+    : statusOptions,
+)
 
 const onSubmit = handleSubmit((formValues) => {
   const artists = formValues.artistsInput

@@ -68,15 +68,19 @@ definePageMeta({
   middleware: 'admin',
 })
 
-const filters = ref({ page: 1, limit: 15, legalName: '', status: '', sortBy: 'createdAt', sortOrder: 'desc' as const })
+const filters = ref({ page: 1, limit: 15, legalName: '', status: 'ALL', sortBy: 'createdAt', sortOrder: 'desc' as const })
+const queryFilters = computed(() => ({
+  ...filters.value,
+  status: filters.value.status === 'ALL' ? '' : filters.value.status,
+}))
 
-const { data, isLoading } = useAdminApplicationsQuery(filters)
+const { data, isLoading } = useAdminApplicationsQuery(queryFilters)
 const applications = computed(() => data.value?.data || [])
 const totalPages = computed(() => data.value?.meta?.totalPages || 1)
 const loading = computed(() => isLoading.value)
 
 const statusOptions = [
-  { label: 'Todos', value: '' },
+  { label: 'Todos', value: 'ALL' },
   { label: 'Pendente', value: 'PENDING' },
   { label: 'Aprovado', value: 'APPROVED' },
   { label: 'Rejeitado', value: 'REJECTED' },

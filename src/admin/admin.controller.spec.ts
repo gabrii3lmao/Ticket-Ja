@@ -16,6 +16,7 @@ import { UserService } from 'src/user/user.service';
 
 const mockAdminService = {
   listOrganizerApplications: jest.fn(),
+  getOrganizerApplicationById: jest.fn(),
   approveOrganizerApplication: jest.fn(),
   rejectOrganizerApplication: jest.fn(),
   listOrders: jest.fn(),
@@ -106,6 +107,19 @@ describe('AdminController', () => {
 
       expect(adminService.listOrganizerApplications).toHaveBeenCalledWith(
         query,
+      );
+      expect(result).toEqual(expected);
+    });
+
+    it('should get an organizer application by id', async () => {
+      const expected = { id: 'app-1', user: { id: 'user-1' } };
+
+      adminService.getOrganizerApplicationById.mockResolvedValue(expected);
+
+      const result = await controller.findOrganizerApplication('app-1');
+
+      expect(adminService.getOrganizerApplicationById).toHaveBeenCalledWith(
+        'app-1',
       );
       expect(result).toEqual(expected);
     });

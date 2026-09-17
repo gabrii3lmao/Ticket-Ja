@@ -33,6 +33,7 @@ import { UpdateEventStatusDto } from './dto/update-event-status.dto';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { Role } from 'generated/prisma/enums';
 import { CacheInterceptor } from '@nestjs/cache-manager';
+import { SkipThrottle } from '@nestjs/throttler';
 
 @ApiTags('event')
 @Controller('event')
@@ -62,6 +63,7 @@ export class EventController {
   }
 
   @Get('mine')
+  @SkipThrottle({ short: true })
   @ApiBearerAuth()
   @Roles(Role.ADMIN, Role.ORGANIZER)
   @ApiOperation({

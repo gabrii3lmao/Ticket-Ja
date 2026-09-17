@@ -30,6 +30,7 @@ import {
   type UserPayload,
 } from 'src/auth/decorators/current-user.decorator';
 import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
+import { SkipThrottle } from '@nestjs/throttler';
 
 @ApiTags('admin')
 @Controller('admin')
@@ -41,6 +42,7 @@ export class AdminController {
   ) {}
 
   @Get('events')
+  @SkipThrottle({ short: true })
   @ApiBearerAuth()
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'List all events for management' })
@@ -53,6 +55,7 @@ export class AdminController {
   }
 
   @Get('venues')
+  @SkipThrottle({ short: true })
   @ApiBearerAuth()
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'List all venues for management' })
@@ -65,6 +68,7 @@ export class AdminController {
   }
 
   @Get('organizer-application')
+  @SkipThrottle({ short: true })
   @ApiBearerAuth()
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'List organizer applications' })
@@ -74,6 +78,17 @@ export class AdminController {
   })
   listOrganizerSummary(@Query() query: QueryOrganizerApplication) {
     return this.adminService.listOrganizerApplications(query);
+  }
+
+  @Get('organizer-application/:id')
+  @SkipThrottle({ short: true })
+  @ApiBearerAuth()
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Get an organizer application by ID' })
+  @ApiResponse({ status: 200, description: 'Returns the application' })
+  @ApiResponse({ status: 404, description: 'Application not found' })
+  findOrganizerApplication(@Param('id') id: string) {
+    return this.adminService.getOrganizerApplicationById(id);
   }
 
   @Patch('organizer-application/:id/approve')
@@ -104,6 +119,7 @@ export class AdminController {
   }
 
   @Get('payments-requests')
+  @SkipThrottle({ short: true })
   @ApiBearerAuth()
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'List orders pending payment confirmation' })
@@ -116,6 +132,7 @@ export class AdminController {
   }
 
   @Get('payments-requests/:id')
+  @SkipThrottle({ short: true })
   @ApiBearerAuth()
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Get order detail with payment info' })

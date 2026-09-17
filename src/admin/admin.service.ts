@@ -69,6 +69,23 @@ export class AdminService {
     };
   }
 
+  async getOrganizerApplicationById(id: string) {
+    const application = await this.prisma.organizerAplication.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: { id: true, email: true, name: true, createdAt: true },
+        },
+      },
+    });
+
+    if (!application) {
+      throw new NotFoundException('Organizer application not found');
+    }
+
+    return application;
+  }
+
   async approveOrganizerApplication(id: string) {
     const application = await this.prisma.organizerAplication.findUnique({
       where: { id },
@@ -142,6 +159,7 @@ export class AdminService {
       this.prisma.order.findMany({
         where: { status },
         skip,
+        take: limit,
         orderBy,
       }),
       this.prisma.order.count({ where: { status } }),

@@ -787,6 +787,16 @@ List organizer applications (paginated).
 
 ---
 
+### `GET /api/admin/organizer-application/:id`
+
+Get a single organizer application with its applicant user (`id`, `email`, `name`, `createdAt`).
+
+**Auth:** Bearer, `ADMIN`.
+
+**`404`:** Application not found.
+
+---
+
 ### `PATCH /api/admin/organizer-application/:id/approve`
 
 Approve an organizer application. Creates an `OrganizerProfile` and promotes the user to `ORGANIZER` role.

@@ -6,5 +6,5 @@ definePageMeta({
 </script>
 
 <template>
-  <EventFormPage base-path="/organizador/eventos" />
+  <EventFormPage base-path="/organizador/eventos" manage-categories />
 </template>

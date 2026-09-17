@@ -30,6 +30,7 @@ import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { Role } from 'generated/prisma/enums';
 import { CacheInterceptor } from '@nestjs/cache-manager';
+import { SkipThrottle } from '@nestjs/throttler';
 
 @ApiTags('venue')
 @Controller('venue')
@@ -58,6 +59,7 @@ export class VenueController {
   }
 
   @Get('mine')
+  @SkipThrottle({ short: true })
   @ApiBearerAuth()
   @Roles(Role.ADMIN, Role.ORGANIZER)
   @ApiOperation({

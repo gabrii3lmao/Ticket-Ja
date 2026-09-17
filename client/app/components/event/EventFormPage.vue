@@ -21,7 +21,8 @@
           :initial-data="initialData"
           :venues="venues"
           :loading="isPending"
-          :show-status="true"
+          :show-status="isEdit"
+          :allowed-statuses="allowedStatuses"
           @submit="onSubmit"
           @cancel="navigateTo(basePath)"
         />
@@ -41,7 +42,7 @@
           </div>
         </div>
         <p v-else class="text-sm text-gray-500 dark:text-gray-400 mb-4">Nenhuma categoria ainda.</p>
-        <NuxtLink :to="`${basePath}/${eventId}/categorias`">
+        <NuxtLink :to="`${basePath}/categorias/${eventId}`">
           <UButton color="primary" variant="outline" size="sm" label="Gerenciar Categorias" />
         </NuxtLink>
       </div>
@@ -87,20 +88,34 @@ const initialData = computed(() => {
 const isPending = computed(() => eventMutation.isPending.value)
 const isDeleting = ref(false)
 
+const STATUS_TRANSITIONS: Record<string, string[]> = {
+  DRAFT: ['DRAFT', 'PUBLISHED', 'CANCELED'],
+  PUBLISHED: ['PUBLISHED', 'FINISHED', 'CANCELED'],
+  FINISHED: ['FINISHED', 'CANCELED'],
+  CANCELED: ['CANCELED'],
+}
+
+const allowedStatuses = computed(() => {
+  const current = event.value?.status
+  return current ? STATUS_TRANSITIONS[current] ?? [current] : undefined
+})
+
 async function onSubmit(data: Record<string, unknown>) {
   const { status, ...rest } = data
-  if (isEdit.value) {
-    await eventMutation.update(eventId.value, rest as any)
-    if (status && status !== event.value?.status) {
-      await eventMutation.updateStatus(eventId.value, status as string)
+  try {
+    if (isEdit.value) {
+      await eventMutation.update(eventId.value, rest as any)
+      if (status && status !== event.value?.status) {
+        await eventMutation.updateStatus(eventId.value, status as string)
+      }
+      navigateTo(props.basePath)
+    } else {
+      const result = await eventMutation.create(rest as any)
+      navigateTo(`${props.basePath}/categorias/${result.id}`)
     }
-  } else {
-    const result = await eventMutation.create(rest as any)
-    if (status && status !== 'DRAFT') {
-      await eventMutation.updateStatus(result.id, status as string)
-    }
+  } catch {
+    // Errors are surfaced by the mutation toasts
   }
-  navigateTo(props.basePath)
 }
 
 async function onDelete() {

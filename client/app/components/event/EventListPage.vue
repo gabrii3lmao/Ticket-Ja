@@ -75,15 +75,19 @@ defineProps<{
   showEmptyAction?: boolean
 }>()
 
-const filters = ref({ page: 1, limit: 15, name: '', status: '', sortBy: 'createdAt', sortOrder: 'desc' as const })
+const filters = ref({ page: 1, limit: 15, name: '', status: 'ALL', sortBy: 'createdAt', sortOrder: 'desc' as const })
+const queryFilters = computed(() => ({
+  ...filters.value,
+  status: filters.value.status === 'ALL' ? '' : filters.value.status,
+}))
 
-const { data, isLoading } = useAdminEventsQuery(filters)
+const { data, isLoading } = useAdminEventsQuery(queryFilters)
 const events = computed(() => data.value?.data || [])
 const totalPages = computed(() => data.value?.meta?.totalPages || 1)
 const loading = computed(() => isLoading.value)
 
 const statusOptions = [
-  { label: 'Todos', value: '' },
+  { label: 'Todos', value: 'ALL' },
   { label: 'Rascunho', value: 'DRAFT' },
   { label: 'Publicado', value: 'PUBLISHED' },
   { label: 'Finalizado', value: 'FINISHED' },

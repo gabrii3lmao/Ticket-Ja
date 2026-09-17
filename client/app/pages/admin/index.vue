@@ -71,16 +71,18 @@ definePageMeta({
 const eventsQuery = ref({ page: 1, limit: 100 })
 const appsQuery = ref({ page: 1, limit: 5, status: 'PENDING' })
 const paymentsQuery = ref({ page: 1, limit: 5, status: 'PENDING' })
+const venuesQuery = ref({ page: 1, limit: 1 })
 
 const { data: eventsData } = useAdminEventsQuery(eventsQuery)
 const { data: appsData } = useAdminApplicationsQuery(appsQuery)
 const { data: paymentsData } = useAdminPaymentsQuery(paymentsQuery)
+const { data: venuesData } = useAdminVenuesQuery(venuesQuery)
 
 const cards = computed(() => [
   { label: 'Eventos', value: eventsData.value?.meta?.total ?? '—', icon: 'i-lucide-calendar', bgClass: 'bg-blue-50 dark:bg-blue-900/30', iconClass: 'text-blue-600 dark:text-blue-400' },
   { label: 'Candidaturas Pendentes', value: appsData.value?.meta?.total ?? '—', icon: 'i-lucide-users', bgClass: 'bg-amber-50 dark:bg-amber-900/30', iconClass: 'text-amber-600 dark:text-amber-400' },
   { label: 'Pedidos Pendentes', value: paymentsData.value?.meta?.total ?? '—', icon: 'i-lucide-credit-card', bgClass: 'bg-green-50 dark:bg-green-900/30', iconClass: 'text-green-600 dark:text-green-400' },
-  { label: 'Locais', value: '—', icon: 'i-lucide-map-pin', bgClass: 'bg-purple-50 dark:bg-purple-900/30', iconClass: 'text-purple-600 dark:text-purple-400' },
+  { label: 'Locais', value: venuesData.value?.meta?.total ?? '—', icon: 'i-lucide-map-pin', bgClass: 'bg-purple-50 dark:bg-purple-900/30', iconClass: 'text-purple-600 dark:text-purple-400' },
 ])
 
 const pendingApps = computed(() => appsData.value?.data || [])

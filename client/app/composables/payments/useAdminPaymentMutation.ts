@@ -3,11 +3,11 @@ import { useToast } from '#imports';
 
 export function useAdminPaymentMutation() {
   const queryClient = useQueryClient();
-  const { apiPost } = useApi();
+  const { apiPatch } = useApi();
   const toast = useToast();
 
   function confirm(id: string) {
-    return apiPost(`/admin/payments-requests/${id}/confirm`)
+    return apiPatch(`/admin/payments-requests/${id}/confirm`)
       .then(() => {
         queryClient.invalidateQueries({ queryKey: ['admin-payments'] });
         queryClient.invalidateQueries({ queryKey: ['admin-payment'] });
@@ -24,7 +24,7 @@ export function useAdminPaymentMutation() {
   }
 
   function reject(id: string, reason?: string) {
-    return apiPost(`/admin/payments-requests/${id}/reject`, { reason })
+    return apiPatch(`/admin/payments-requests/${id}/reject`, { reason })
       .then(() => {
         queryClient.invalidateQueries({ queryKey: ['admin-payments'] });
         queryClient.invalidateQueries({ queryKey: ['admin-payment'] });

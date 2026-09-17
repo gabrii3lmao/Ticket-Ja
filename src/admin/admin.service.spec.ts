@@ -138,6 +138,33 @@ describe('AdminService', () => {
     });
   });
 
+  describe('getOrganizerApplicationById', () => {
+    it('should return the application with its user', async () => {
+      const application = { id: 'app-1', user: { id: 'user-1' } };
+      mockPrisma.organizerAplication.findUnique.mockResolvedValue(application);
+
+      const result = await service.getOrganizerApplicationById('app-1');
+
+      expect(mockPrisma.organizerAplication.findUnique).toHaveBeenCalledWith({
+        where: { id: 'app-1' },
+        include: {
+          user: {
+            select: { id: true, email: true, name: true, createdAt: true },
+          },
+        },
+      });
+      expect(result).toEqual(application);
+    });
+
+    it('should throw NotFoundException when the application does not exist', async () => {
+      mockPrisma.organizerAplication.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.getOrganizerApplicationById('missing'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
   describe('approveOrganizerApplication', () => {
     it('should create organizer profile, update role and delete application', async () => {
       const application = {
@@ -249,6 +276,7 @@ describe('AdminService', () => {
       expect(mockPrisma.order.findMany).toHaveBeenCalledWith({
         where: { status: 'PENDING' },
         skip: 0,
+        take: 10,
         orderBy: { createdAt: 'desc' },
       });
       expect(result).toEqual({
