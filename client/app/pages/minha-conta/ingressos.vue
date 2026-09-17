@@ -30,7 +30,7 @@
               {{ ticket.event?.name || 'Evento' }}
             </h3>
             <p v-if="ticket.event" class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {{ formatDate(ticket.event.startDate) }}
+              {{ formatDateTime(ticket.event.startDate, { month: 'long' }) }}
             </p>
             <p v-if="ticket.event?.venue" class="text-sm text-gray-500 dark:text-gray-400">
               {{ ticket.event.venue.name }}{{ ticket.event.venue.city ? `, ${ticket.event.venue.city}` : '' }}
@@ -68,16 +68,6 @@ definePageMeta({
 })
 
 const { data: tickets, isLoading } = useMyTicketsQuery()
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
 
 function ticketStatusColor(status: string) {
   switch (status) {

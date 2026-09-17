@@ -29,7 +29,7 @@
               Ingresso: {{ ticket.code }}
             </p>
             <p class="text-sm text-gray-500 dark:text-gray-400">
-              Comprado em {{ formatDate(ticket.createdAt) }}
+              Comprado em {{ formatDateTime(ticket.createdAt) }}
             </p>
           </div>
           <UBadge :color="ticketStatusColor(ticket.status)" variant="soft">
@@ -57,16 +57,6 @@ definePageMeta({
 })
 
 const { data: tickets, isLoading } = useMyOrdersQuery()
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
 
 function ticketStatusColor(status: string) {
   switch (status) {

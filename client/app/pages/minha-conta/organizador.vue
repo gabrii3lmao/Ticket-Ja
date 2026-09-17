@@ -40,7 +40,7 @@
           </div>
           <div>
             <dt class="text-gray-500 dark:text-gray-400">Enviada em</dt>
-            <dd class="text-gray-900 dark:text-white">{{ formatDate(application.createdAt) }}</dd>
+            <dd class="text-gray-900 dark:text-white">{{ formatDate(application.createdAt, { month: 'long' }) }}</dd>
           </div>
         </dl>
 
@@ -144,8 +144,4 @@ const onSubmit = handleSubmit((formValues) => {
     document: formValues.document,
   })
 })
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
-}
 </script>

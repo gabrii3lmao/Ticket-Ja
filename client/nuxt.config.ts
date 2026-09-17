@@ -12,6 +12,19 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  components: [{ path: '~/components', pathPrefix: false }],
+
+  imports: {
+    dirs: [
+      'composables/catalog',
+      'composables/events',
+      'composables/venues',
+      'composables/orders',
+      'composables/organizers',
+      'composables/payments',
+    ],
+  },
+
   devServer: { port: 5173 },
 
   runtimeConfig: {

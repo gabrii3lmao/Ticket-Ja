@@ -1,75 +1,33 @@
-# Nuxt Minimal Starter
+# Ticket Já — Client
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+Nuxt 4 SPA (customer/organizer/admin frontend) for the Ticket Já API. It is a standalone Yarn 4 project under `client/`; the NestJS API lives at the repo root and runs on `http://localhost:3000`.
 
-## Setup
+See `AGENTS.md` for the full architecture and conventions.
 
-Make sure to install dependencies:
-
-```bash
-# npm
-npm install
-
-# pnpm
-pnpm install
-
-# yarn
-yarn install
-
-# bun
-bun install
-```
-
-## Development Server
-
-Start the development server on `http://localhost:3000`:
+## Commands
 
 ```bash
-# npm
-npm run dev
-
-# pnpm
-pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
+yarn install     # installs deps; postinstall runs `nuxt prepare`
+yarn dev         # dev server on http://localhost:5173 (proxies /api and /docs to :3000)
+yarn build       # production build
+yarn generate    # static SPA -> .output/public (used by the API's Docker image)
+yarn typecheck   # vue-tsc type checking
+yarn preview     # preview a production build
 ```
 
-## Production
+## Structure
 
-Build the application for production:
-
-```bash
-# npm
-npm run build
-
-# pnpm
-pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
+```
+app/
+├── assets/css/     global Tailwind + Nuxt UI styles
+├── components/     layout/ | ui/ | event/ | venue/ | order/
+├── composables/    useApi, useAuth + catalog/ events/ venues/ orders/ organizers/ payments/
+├── layouts/        default, admin
+├── middleware/     auth, admin, organizer
+├── pages/          public + admin/ + organizador/ + minha-conta/ + checkout/
+├── stores/         auth, checkout (Pinia)
+├── types/          api.ts, admin.ts, organizer.ts
+└── utils/          api.ts, format.ts, error.ts
 ```
 
-Locally preview production build:
-
-```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+Domain folders under `composables/` are registered in `nuxt.config.ts` (`imports.dirs`) and components use `pathPrefix: false`, so names stay flat and auto-imported. The admin/organizer CRUD pages are thin wrappers over shared page components in `components/event/` and `components/venue/`.

@@ -164,8 +164,4 @@ const onSubmit = handleSubmit((formValues) => {
   })
 })
 
-function formatDateTimeLocal(iso: string): string {
-  const d = new Date(iso)
-  return d.toISOString().slice(0, 16)
-}
 </script>

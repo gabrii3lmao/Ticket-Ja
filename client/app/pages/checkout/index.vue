@@ -20,6 +20,9 @@
       <div class="lg:col-span-2 space-y-6">
         <div v-if="currentStep === 0">
           <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Seus ingressos</h2>
+          <p v-if="checkoutStore.eventName" class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            {{ checkoutStore.eventName }}
+          </p>
           <div class="mt-4 space-y-3">
             <div
               v-for="item in selectedItems"
@@ -42,21 +45,21 @@
 
         <div v-if="currentStep === 1">
           <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Dados do comprador</h2>
-          <form class="mt-4 space-y-4" @submit.prevent="goToConfirmation">
-            <UFormField label="Nome completo" name="buyerName" :error="buyerErrors.name">
-              <UInput v-model="buyerValues.name" placeholder="Seu nome completo" size="lg" class="w-full" />
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Os ingressos serão emitidos para a conta autenticada.
+          </p>
+          <div class="mt-4 space-y-4">
+            <UFormField label="Nome completo" name="buyerName">
+              <UInput :model-value="user?.name" readonly size="lg" class="w-full" />
             </UFormField>
-            <UFormField label="E-mail" name="buyerEmail" :error="buyerErrors.email">
-              <UInput v-model="buyerValues.email" type="email" placeholder="seu@email.com" size="lg" class="w-full" />
-            </UFormField>
-            <UFormField label="CPF (opcional)" name="buyerDocument">
-              <UInput v-model="buyerValues.document" placeholder="000.000.000-00" size="lg" class="w-full" />
+            <UFormField label="E-mail" name="buyerEmail">
+              <UInput :model-value="user?.email" readonly size="lg" class="w-full" />
             </UFormField>
             <div class="flex gap-3">
               <UButton color="neutral" variant="outline" label="Voltar" @click="currentStep = 0" />
-              <UButton type="submit" color="primary" size="lg" label="Continuar" />
+              <UButton color="primary" size="lg" label="Continuar" @click="currentStep = 2" />
             </div>
-          </form>
+          </div>
         </div>
 
         <div v-if="currentStep === 2">
@@ -64,18 +67,17 @@
           <div class="mt-4 space-y-4">
             <div class="rounded-lg border border-gray-200 p-4 dark:border-gray-800">
               <h3 class="font-medium text-gray-900 dark:text-white">Dados do comprador</h3>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ buyerValues.name }}</p>
-              <p class="text-sm text-gray-500 dark:text-gray-400">{{ buyerValues.email }}</p>
-              <p v-if="buyerValues.document" class="text-sm text-gray-500 dark:text-gray-400">
-                CPF: {{ buyerValues.document }}
-              </p>
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ user?.name }}</p>
+              <p class="text-sm text-gray-500 dark:text-gray-400">{{ user?.email }}</p>
             </div>
 
             <UFormField label="Cupom de desconto" name="couponCode">
-              <div class="flex gap-2">
-                <UInput v-model="couponCode" placeholder="Código do cupom" size="lg" class="flex-1" />
-                <UButton color="neutral" variant="outline" label="Aplicar" @click="applyCoupon" />
-              </div>
+              <UInput
+                placeholder="Cupons estarão disponíveis em breve"
+                size="lg"
+                class="w-full"
+                disabled
+              />
             </UFormField>
 
             <div class="flex gap-3">
@@ -96,10 +98,10 @@
         <div class="sticky top-24">
           <OrderSummary
             :items="summaryItems"
-            :subtotal="subtotal"
-            :fee="fee"
-            :discount="discount"
-            :total="total"
+            :subtotal="checkoutStore.subtotal"
+            :fee="checkoutStore.fee"
+            :discount="checkoutStore.discount"
+            :total="checkoutStore.total"
           />
         </div>
       </div>
@@ -108,10 +110,8 @@
 </template>
 
 <script setup lang="ts">
-import { useForm } from 'vee-validate'
-import { toTypedSchema } from '@vee-validate/zod'
-import * as z from 'zod'
 import { useCheckoutStore } from '~/stores/checkout'
+import { useAuthStore } from '~/stores/auth'
 
 definePageMeta({
   middleware: 'auth',
@@ -119,10 +119,13 @@ definePageMeta({
 })
 
 const checkoutStore = useCheckoutStore()
+const authStore = useAuthStore()
 const router = useRouter()
 
+const user = computed(() => authStore.user)
+
 const currentStep = ref(0)
-const couponCode = ref('')
+const idempotencyKey = ref(generateIdempotencyKey())
 
 const steps = [
   { label: 'Ingressos' },
@@ -130,72 +133,44 @@ const steps = [
   { label: 'Confirmação' },
 ]
 
-const buyerSchema = toTypedSchema(
-  z.object({
-    name: z.string().min(1, 'Nome é obrigatório'),
-    email: z.string().min(1, 'E-mail é obrigatório').email('E-mail inválido'),
-    document: z.string().optional(),
-  }),
-)
-
-const { handleSubmit: handleBuyerSubmit, errors: buyerErrors, values: buyerValues } = useForm({
-  validationSchema: buyerSchema,
-  initialValues: { name: '', email: '', document: '' },
-})
-
-// Mock categories data - in real app this would come from useEventCategoriesQuery
-const mockCategories = ref<Record<string, { name: string; price: number }>>({})
-
-const selectedItems = computed(() =>
-  checkoutStore.items.map((item) => {
-    const cat = mockCategories.value[item.categoryId]
-    return {
-      categoryId: item.categoryId,
-      name: cat?.name || 'Ingresso',
-      quantity: item.quantity,
-      unitPrice: cat?.price || 0,
-    }
-  }),
-)
+const selectedItems = computed(() => checkoutStore.items)
 
 const summaryItems = computed(() =>
-  selectedItems.value.map((item) => ({
+  checkoutStore.items.map((item) => ({
     ...item,
     subtotal: item.unitPrice * item.quantity,
   })),
 )
 
-const subtotal = computed(() => summaryItems.value.reduce((sum, item) => sum + item.subtotal, 0))
-const fee = computed(() => subtotal.value * 0.05)
-const discount = ref(0)
-const total = computed(() => subtotal.value + fee.value - discount.value)
-
 const createOrder = useCreateOrderMutation()
 
-function formatPrice(value: number): string {
-  return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function goToConfirmation() {
-  handleBuyerSubmit(() => {
-    currentStep.value = 2
-  })()
-}
-
-function applyCoupon() {
-  // TODO: validate coupon via API
+function generateIdempotencyKey(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
 async function submitOrder() {
+  if (!checkoutStore.items.length) return
+
   try {
-    const order = await createOrder.mutateAsync({
-      items: checkoutStore.items,
-      ...(couponCode.value ? { couponCode: couponCode.value } : {}),
+    const response = await createOrder.mutateAsync({
+      data: {
+        items: checkoutStore.items.map(({ categoryId, quantity }) => ({
+          categoryId,
+          quantity,
+        })),
+      },
+      idempotencyKey: idempotencyKey.value,
     })
+
+    checkoutStore.setLastOrder(response)
     checkoutStore.clear()
-    router.push(`/checkout/confirmacao?orderId=${order.id}`)
+    idempotencyKey.value = generateIdempotencyKey()
+    router.push(`/checkout/confirmacao?orderId=${response.order.id}`)
   } catch {
-    // Error handled by mutation
+    // Error handled by the mutation toast
   }
 }
 </script>

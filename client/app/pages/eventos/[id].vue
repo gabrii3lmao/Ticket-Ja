@@ -52,9 +52,9 @@
             <div class="flex items-center gap-3">
               <UIcon name="i-lucide-calendar" class="h-5 w-5 text-gray-400" />
               <div>
-                <p class="font-medium text-gray-900 dark:text-white">{{ formatDate(event.startDate) }}</p>
+                <p class="font-medium text-gray-900 dark:text-white">{{ formatDateTime(event.startDate, { month: 'long' }) }}</p>
                 <p v-if="event.endDate" class="text-sm text-gray-500 dark:text-gray-400">
-                  até {{ formatDate(event.endDate) }}
+                  até {{ formatDateTime(event.endDate, { month: 'long' }) }}
                 </p>
               </div>
             </div>
@@ -114,8 +114,8 @@
 </template>
 
 <script setup lang="ts">
-import type { TicketSelection } from '~/components/TicketSelector.vue'
-import { useCheckoutStore } from '~/stores/checkout'
+import type { TicketSelection } from '~/types/checkout'
+import { useCheckoutStore, type CheckoutItem } from '~/stores/checkout'
 
 definePageMeta({
   layout: 'default',
@@ -150,20 +150,25 @@ const statusLabel = computed(() => {
   }
 })
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
 function goToCheckout() {
   const checkoutStore = useCheckoutStore()
-  checkoutStore.setItems(selectedTickets.value)
-  checkoutStore.setEventId(eventId.value)
+  const categoriesList = categories.value?.data ?? []
+
+  const items = selectedTickets.value
+    .map((selection) => {
+      const category = categoriesList.find((c) => c.id === selection.categoryId)
+      if (!category) return null
+      return {
+        categoryId: category.id,
+        name: category.name,
+        unitPrice: Number.parseFloat(category.price),
+        quantity: selection.quantity,
+      }
+    })
+    .filter((item): item is CheckoutItem => item !== null)
+
+  checkoutStore.setEvent(eventId.value, event.value?.name ?? null)
+  checkoutStore.setItems(items)
   router.push('/checkout')
 }
 </script>

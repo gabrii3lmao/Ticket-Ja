@@ -42,11 +42,7 @@
 
 <script setup lang="ts">
 import type { Category } from '~/types/api'
-
-interface TicketSelection {
-  categoryId: string
-  quantity: number
-}
+import type { TicketSelection } from '~/types/checkout'
 
 const props = defineProps<{
   categories: Category[]
@@ -82,10 +78,4 @@ function decrement(categoryId: string) {
   }
 }
 
-function formatPrice(price: string): string {
-  return Number.parseFloat(price).toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
-}
 </script>

@@ -139,6 +139,11 @@ export interface CreateOrderInput {
   couponCode?: string
 }
 
+export interface CreateOrderResponse {
+  order: Order
+  payment: Payment
+}
+
 export interface LoginInput {
   email: string
   password: string

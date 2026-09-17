@@ -17,7 +17,7 @@
     <div class="p-4">
       <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
         <UIcon name="i-lucide-calendar" class="h-3.5 w-3.5" />
-        <span>{{ formatDate(event.startDate) }}</span>
+        <span>{{ formatDateTime(event.startDate) }}</span>
       </div>
       <h3 class="mt-2 line-clamp-2 text-lg font-semibold text-gray-900 dark:text-white">
         {{ event.name }}
@@ -49,13 +49,4 @@ const lowestPrice = computed(() => {
   return min.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 })
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
 </script>
