@@ -44,6 +44,10 @@ src/
 | Auth | JWT (passport-jwt) with refresh tokens |
 | Payments | Manual admin confirmation (no gateway) |
 | API Docs | Swagger/OpenAPI at `/docs` |
+| Frontend | Nuxt 4 SPA (Vue 3 + TypeScript, `ssr: false`) |
+| UI | Nuxt UI v4 + Tailwind v4 |
+| Client state | Pinia |
+| Client data / forms | TanStack Vue Query (`@peterbud/nuxt-query`) + vee-validate/Zod |
 | Testing | Jest 30 (unit) + Supertest (e2e) |
 | Container | Docker multi-stage + Docker Compose |
 
@@ -72,6 +76,38 @@ yarn start:dev
 
 The API runs at `http://localhost:3000`. Swagger docs are available at `http://localhost:3000/docs` (disabled in production).
 
+## Frontend
+
+The frontend is a **Nuxt 4 SPA** (Vue 3 + TypeScript, `ssr: false`) located in `client/` as a standalone Yarn 4 project. It is a single app serving three roles — **customer**, **organizer** and **admin** — and consumes the API at `/api`.
+
+**Stack:** Nuxt UI v4 + Tailwind v4 for UI, Pinia for client state (auth, checkout), TanStack Vue Query (`@peterbud/nuxt-query`) for data fetching, vee-validate + Zod for forms, and VueUse + `qrcode` where needed.
+
+```
+client/app/
+├── assets/css/     global Tailwind + Nuxt UI styles
+├── components/     layout/ | ui/ | event/ | venue/ | order/
+├── composables/    useApi, useAuth + catalog/ events/ venues/ orders/ organizers/ payments/
+├── layouts/        default, admin
+├── middleware/     auth, admin, organizer
+├── pages/          public + admin/ + organizador/ + minha-conta/ + checkout/
+├── stores/         auth, checkout (Pinia)
+├── types/          api.ts, admin.ts, organizer.ts
+└── utils/          api.ts, format.ts, error.ts
+```
+
+**Run it from `client/`:**
+
+```bash
+yarn install     # postinstall runs `nuxt prepare`
+yarn dev         # SPA on http://localhost:5173, proxies /api and /docs to :3000
+yarn generate    # static SPA -> .output/public
+yarn typecheck   # vue-tsc (no lint/test scripts)
+```
+
+The client talks to the API through `useApi()` (adds the bearer token and redirects to `/login` on 401). The base URL is `NUXT_PUBLIC_API_BASE` (default `/api`), and pages are protected with the `auth`, `admin` and `organizer` route middleware. In production the root `Dockerfile` builds the SPA in its `client-builder` stage (`yarn generate`) and copies `.output/public` into the API image's `public/`, where NestJS serves it via `ServeStaticModule`.
+
+See [`client/README.md`](client/README.md) and [`client/AGENTS.md`](client/AGENTS.md) for full conventions.
+
 ## Seed Data
 
 The seed populates the database with realistic test data using Faker:
@@ -84,42 +120,6 @@ The seed populates the database with realistic test data using Faker:
 - **Orders** — 8 orders in different states (PAID, PENDING, CANCELED) with corresponding payments (APPROVED, PENDING, REJECTED) and tickets
 
 Default credentials: `admin@email.com` / `organizer@email.com` / `maria@email.com` — password: `123456`
-
-## API Endpoints
-
-All endpoints are documented in Swagger at `/docs` and in [`docs/API.md`](docs/API.md). The API is organized into these domain groups:
-
-- **Auth** — Register, sign in, refresh tokens, logout, account deletion
-- **Venue** — CRUD with ownership validation and pagination
-- **Event** — CRUD with status lifecycle management (DRAFT ↔ PUBLISHED)
-- **Category** — CRUD nested under events, with pricing and stock control
-- **Coupon** — Event-scoped discount coupons with usage limits
-- **Order** — Ticket purchase with atomic stock reservation and idempotency
-- **Ticket** — QR code validation, listing, usage tracking
-- **Admin** — Organizer application review + payment confirmation (ADMIN only)
-- **Health** — Service health check (database + Redis)
-
-## Payments (Manual Confirmation)
-
-The payment flow is designed for simplicity and manual control:
-
-1. `POST /order` reserves stock atomically and creates a payment record in `PENDING` status.
-2. The order appears in the admin panel (`GET /admin/payments-requests`).
-3. The administrator verifies the payment manually (e.g., bank transfer, PIX confirmation).
-4. The administrator confirms (`PATCH /admin/payments-requests/:id/confirm`) or rejects (`PATCH /admin/payments-requests/:id/reject`) the payment.
-5. Confirmation marks the order as `PAID`. Rejection cancels the order, releases stock, and cancels tickets.
-6. **Reservation expiry** — each order is created with a `reservedUntil` timestamp (default 15 min, `ORDER_RESERVATION_TTL_MINUTES`). A scheduled job (`OrderExpirationService`, runs every minute) cancels orders that are still `PENDING` after that time, releasing stock and canceling tickets.
-
-### Idempotency
-
-`POST /order` accepts an optional `Idempotency-Key` header. Repeating the request with the same key (and authenticated user) returns the original order instead of creating a duplicate — useful for retries and double-clicks. The key is stored hashed (`sha256`) with a `[userId, idempotencyKey]` unique constraint, and concurrent requests with the same key are resolved to the first order created.
-
-```http
-POST /api/order
-Authorization: Bearer <token>
-Idempotency-Key: 7f3c... (any unique string per checkout attempt)
-Content-Type: application/json
-```
 
 ## Environment Variables
 
@@ -152,7 +152,6 @@ yarn prisma db seed   # Seed database
 - [`docs/API.md`](docs/API.md) — full endpoint reference with request/response examples.
 - [`docs/PAYMENTS.md`](docs/PAYMENTS.md) — manual payment flow, reservation expiry and idempotency.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — design decisions, request lifecycle and conventions.
-- [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) — known limitations and roadmap.
 
 ## License
 
