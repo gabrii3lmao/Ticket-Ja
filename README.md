@@ -53,28 +53,65 @@ src/
 
 ## Quick Start
 
+### Prerequisites
+
+- **Node.js 24+** with **Corepack** (activates the pinned Yarn 4)
+- **Docker** + **Docker Compose**
+- **Git**
+
+### 1. Clone the repository
+
 ```bash
-# 1. Copy environment variables
-cp .env.example .env
+git clone https://github.com/gabrii3lmao/Ticket-Ja.git
+cd Ticket-Ja
+```
 
-# 2. Install dependencies
+### 2. Install dependencies
+
+```bash
+corepack enable
 yarn install
+```
 
-# 3. Start PostgreSQL and Redis
+### 3. Configure environment variables
+
+```bash
+cp .env.example .env
+```
+
+### 4. Start PostgreSQL and Redis
+
+```bash
 docker compose up -d
+# or
+podman-compose up -d
+```
 
-# 4. Generate Prisma client and apply migrations
-yarn prisma generate
-yarn prisma migrate deploy
+### 5. Set up the database
 
-# 5. Seed the database
-yarn prisma db seed
+```bash
+yarn prisma generate        # generate the Prisma client
+yarn prisma migrate deploy  # apply migrations
+yarn prisma db seed         # load seed data
+```
 
-# 6. Start dev server
+### 6. Run the API
+
+```bash
 yarn start:dev
 ```
 
 The API runs at `http://localhost:3000`. Swagger docs are available at `http://localhost:3000/docs` (disabled in production).
+
+### 7. Run the frontend (client)
+
+In a second terminal:
+
+```bash
+cd client
+yarn install     # postinstall runs `nuxt prepare`
+yarn dev         # SPA on http://localhost:5173, proxies /api and /docs to :3000
+```
 
 ## Frontend
 
