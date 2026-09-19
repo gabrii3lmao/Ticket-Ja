@@ -158,9 +158,16 @@ export interface LoginInput {
   password: string
 }
 
+export interface OrganizerApplicationInput {
+  legalName: string
+  tradeName?: string
+  document: string
+}
+
 export interface RegisterInput {
   name: string
   email: string
   password: string
   role?: UserRole
+  organizer?: OrganizerApplicationInput
 }

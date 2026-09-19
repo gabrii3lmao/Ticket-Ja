@@ -13,6 +13,9 @@ const mockAuthService = {
   login: jest.fn(),
   refreshTokens: jest.fn(),
   logout: jest.fn(),
+  me: jest.fn(),
+  getMyOrganizerApplication: jest.fn(),
+  submitOrganizerApplication: jest.fn(),
 };
 
 const mockUserService = {
@@ -101,6 +104,54 @@ describe('AuthController', () => {
       await controller.logout(dto);
 
       expect(authService.logout).toHaveBeenCalledWith('refresh-token');
+    });
+  });
+
+  describe('me', () => {
+    it('should return the current user', async () => {
+      const user = { id: 'user-id', role: 'BUYER' as const };
+      const result = { id: 'user-id', email: 'john@mail.com', role: 'BUYER' };
+
+      mockAuthService.me.mockResolvedValue(result);
+
+      const response = await controller.me(user);
+
+      expect(authService.me).toHaveBeenCalledWith('user-id');
+      expect(response).toEqual(result);
+    });
+  });
+
+  describe('getMyOrganizerApplication', () => {
+    it('should return the current user application', async () => {
+      const user = { id: 'user-id', role: 'BUYER' as const };
+      const result = { id: 'app-1', status: 'PENDING' };
+
+      mockAuthService.getMyOrganizerApplication.mockResolvedValue(result);
+
+      const response = await controller.getMyOrganizerApplication(user);
+
+      expect(authService.getMyOrganizerApplication).toHaveBeenCalledWith(
+        'user-id',
+      );
+      expect(response).toEqual(result);
+    });
+  });
+
+  describe('submitOrganizerApplication', () => {
+    it('should call authService.submitOrganizerApplication', async () => {
+      const user = { id: 'user-id', role: 'BUYER' as const };
+      const dto = { legalName: 'John Corp LTDA', document: '12345678000190' };
+      const result = { id: 'app-1', status: 'PENDING' };
+
+      mockAuthService.submitOrganizerApplication.mockResolvedValue(result);
+
+      const response = await controller.submitOrganizerApplication(dto, user);
+
+      expect(authService.submitOrganizerApplication).toHaveBeenCalledWith(
+        user,
+        dto,
+      );
+      expect(response).toEqual(result);
     });
   });
 });

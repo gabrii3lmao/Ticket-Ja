@@ -23,6 +23,13 @@ export const useAuthStore = defineStore('auth', () => {
     userCookie.value = JSON.stringify(userData)
   }
 
+  function setUser(userData: User) {
+    user.value = userData
+
+    const userCookie = useCookie('auth_user', { maxAge: 60 * 60 * 24 * 7 })
+    userCookie.value = JSON.stringify(userData)
+  }
+
   function clearSession() {
     user.value = null
     token.value = null
@@ -60,6 +67,7 @@ export const useAuthStore = defineStore('auth', () => {
     refreshToken,
     isAuthenticated,
     setSession,
+    setUser,
     clearSession,
     restoreSession,
   }

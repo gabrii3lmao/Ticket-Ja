@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
@@ -14,7 +15,10 @@ import {
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
+import { Roles } from './decorators/roles.decorator';
+import { Role } from 'generated/prisma/enums';
 import { RegisterDto } from './dto/register.dto';
+import { SubmitOrganizerApplicationDto } from './dto/organizer-application.dto';
 import { SignInDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import {
@@ -78,5 +82,37 @@ export class AuthController {
   @ApiResponse({ status: 404, description: 'User not found' })
   delete(@CurrentUser(ActiveUserPipe) user: UserPayload) {
     return this.authService.delete(user.id);
+  }
+
+  @Get('me')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get the authenticated user' })
+  @ApiResponse({ status: 200, description: 'Returns the current user' })
+  me(@CurrentUser(ActiveUserPipe) user: UserPayload) {
+    return this.authService.me(user.id);
+  }
+
+  @Get('organizer-application')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: "Get the authenticated user's organizer application",
+  })
+  @ApiResponse({ status: 200, description: 'Returns the application or null' })
+  getMyOrganizerApplication(@CurrentUser(ActiveUserPipe) user: UserPayload) {
+    return this.authService.getMyOrganizerApplication(user.id);
+  }
+
+  @Post('organizer-application')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @Roles(Role.BUYER)
+  @ApiOperation({ summary: 'Submit or resubmit an organizer application' })
+  @ApiResponse({ status: 200, description: 'Application submitted' })
+  @ApiResponse({ status: 409, description: 'Application already exists' })
+  submitOrganizerApplication(
+    @Body() data: SubmitOrganizerApplicationDto,
+    @CurrentUser(ActiveUserPipe) user: UserPayload,
+  ) {
+    return this.authService.submitOrganizerApplication(user, data);
   }
 }

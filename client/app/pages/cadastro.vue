@@ -1,16 +1,33 @@
 <template>
-  <div class="flex min-h-[80vh] items-center justify-center px-4">
+  <div class="flex min-h-[80vh] items-center justify-center px-4 py-8">
     <div class="w-full max-w-md">
       <div class="text-center">
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white font-[family-name:var(--font-family-display)]">
           Criar Conta
         </h1>
         <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-          Cadastre-se para comprar ingressos
+          {{ isOrganizer ? 'Cadastre-se para vender ingressos' : 'Cadastre-se para comprar ingressos' }}
         </p>
       </div>
 
-      <form class="mt-8 space-y-5" @submit.prevent="onSubmit">
+      <div class="mt-8 grid grid-cols-2 gap-2">
+        <UButton
+          color="primary"
+          :variant="!isOrganizer ? 'solid' : 'outline'"
+          label="Comprar ingressos"
+          block
+          @click="accountType = 'BUYER'"
+        />
+        <UButton
+          color="primary"
+          :variant="isOrganizer ? 'solid' : 'outline'"
+          label="Vender ingressos"
+          block
+          @click="accountType = 'ORGANIZER'"
+        />
+      </div>
+
+      <form class="mt-6 space-y-5" @submit.prevent="onSubmit">
         <UFormField label="Nome completo" name="name" :error="errors.name">
           <UInput
             v-model="name"
@@ -36,7 +53,7 @@
           <UInput
             v-model="password"
             type="password"
-            placeholder="Mínimo 8 caracteres"
+            placeholder="Mínimo 6 caracteres"
             icon="i-lucide-lock"
             size="lg"
             class="w-full"
@@ -54,13 +71,33 @@
           />
         </UFormField>
 
+        <template v-if="isOrganizer">
+          <div class="border-t border-gray-200 dark:border-gray-800 pt-5">
+            <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Dados da empresa</p>
+
+            <div class="space-y-5">
+              <UFormField label="Razão Social" name="legalName" :error="errors.legalName">
+                <UInput v-model="legalName" placeholder="Nome da empresa" size="lg" class="w-full" />
+              </UFormField>
+
+              <UFormField label="Nome Fantasia" name="tradeName" :error="errors.tradeName">
+                <UInput v-model="tradeName" placeholder="Nome exibido ao público (opcional)" size="lg" class="w-full" />
+              </UFormField>
+
+              <UFormField label="CPF ou CNPJ" name="document" :error="errors.document">
+                <UInput v-model="document" placeholder="Apenas números" size="lg" class="w-full" />
+              </UFormField>
+            </div>
+          </div>
+        </template>
+
         <UButton
           type="submit"
           color="primary"
           size="lg"
           block
           :loading="loading"
-          label="Criar conta"
+          :label="isOrganizer ? 'Cadastrar como organizador' : 'Criar conta'"
         />
 
         <p class="text-center text-sm text-gray-500 dark:text-gray-400">
@@ -86,18 +123,32 @@ definePageMeta({
 const { register, loading } = useAuth()
 
 const registerSchema = toTypedSchema(
-  z.object({
-    name: z.string().min(1, 'Nome é obrigatório').min(3, 'Nome deve ter pelo menos 3 caracteres'),
-    email: z.string().min(1, 'E-mail é obrigatório').email('E-mail inválido'),
-    password: z
-      .string()
-      .min(1, 'Senha é obrigatória')
-      .min(6, 'Senha deve ter pelo menos 6 caracteres'),
-    confirmPassword: z.string().min(1, 'Confirmação de senha é obrigatória'),
-  }).refine((data) => data.password === data.confirmPassword, {
-    message: 'As senhas não coincidem',
-    path: ['confirmPassword'],
-  }),
+  z
+    .object({
+      name: z.string().min(1, 'Nome é obrigatório').min(3, 'Nome deve ter pelo menos 3 caracteres'),
+      email: z.string().min(1, 'E-mail é obrigatório').email('E-mail inválido'),
+      password: z
+        .string()
+        .min(1, 'Senha é obrigatória')
+        .min(6, 'Senha deve ter pelo menos 6 caracteres'),
+      confirmPassword: z.string().min(1, 'Confirmação de senha é obrigatória'),
+      accountType: z.enum(['BUYER', 'ORGANIZER']),
+      legalName: z.string().optional(),
+      tradeName: z.string().optional(),
+      document: z.string().optional(),
+    })
+    .refine((data) => data.password === data.confirmPassword, {
+      message: 'As senhas não coincidem',
+      path: ['confirmPassword'],
+    })
+    .refine((data) => data.accountType !== 'ORGANIZER' || !!data.legalName, {
+      message: 'Razão social é obrigatória',
+      path: ['legalName'],
+    })
+    .refine((data) => data.accountType !== 'ORGANIZER' || (data.document?.length ?? 0) >= 11, {
+      message: 'Documento inválido',
+      path: ['document'],
+    }),
 )
 
 const { handleSubmit, errors, defineField } = useForm({
@@ -107,6 +158,10 @@ const { handleSubmit, errors, defineField } = useForm({
     email: '',
     password: '',
     confirmPassword: '',
+    accountType: 'BUYER' as 'BUYER' | 'ORGANIZER',
+    legalName: '',
+    tradeName: '',
+    document: '',
   },
 })
 
@@ -114,12 +169,27 @@ const [name] = defineField('name')
 const [email] = defineField('email')
 const [password] = defineField('password')
 const [confirmPassword] = defineField('confirmPassword')
+const [accountType] = defineField('accountType')
+const [legalName] = defineField('legalName')
+const [tradeName] = defineField('tradeName')
+const [document] = defineField('document')
+
+const isOrganizer = computed(() => accountType.value === 'ORGANIZER')
 
 const onSubmit = handleSubmit(async (formValues) => {
   await register({
     name: formValues.name,
     email: formValues.email,
     password: formValues.password,
+    role: formValues.accountType,
+    organizer:
+      formValues.accountType === 'ORGANIZER'
+        ? {
+            legalName: formValues.legalName || '',
+            tradeName: formValues.tradeName || undefined,
+            document: formValues.document || '',
+          }
+        : undefined,
   })
 })
 </script>

@@ -3,7 +3,11 @@
     <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Tornar-se Organizador</h1>
     <p class="text-gray-500 dark:text-gray-400 mb-6">Preencha os dados da sua empresa para solicitar acesso de organizador.</p>
 
-    <div v-if="user?.role === 'ORGANIZER' || user?.role === 'ADMIN'" class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-6 max-w-xl">
+    <div v-if="isLoading" class="max-w-xl animate-pulse space-y-4">
+      <div class="h-24 bg-gray-200 dark:bg-gray-700 rounded-xl"></div>
+    </div>
+
+    <div v-else-if="isOrganizer" class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-6 max-w-xl">
       <div class="flex items-center gap-3">
         <UIcon name="i-lucide-check-circle" class="w-6 h-6 text-green-600 dark:text-green-400" />
         <div>
@@ -18,7 +22,7 @@
       </div>
     </div>
 
-    <div v-else-if="application" class="max-w-xl space-y-6">
+    <div v-else-if="application && !resubmitting" class="max-w-xl space-y-6">
       <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-6">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Sua Candidatura</h2>
@@ -45,11 +49,14 @@
         </dl>
 
         <div v-if="application.status === 'PENDING'" class="mt-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-          <p class="text-sm text-amber-700 dark:text-amber-300">Sua candidatura está sendo analisada. Você receberá uma notificação quando for aprovada ou rejeitada.</p>
+          <p class="text-sm text-amber-700 dark:text-amber-300">Sua candidatura está sendo analisada. Você receberá uma retorno quando for aprovada ou rejeitada.</p>
         </div>
 
-        <div v-if="application.status === 'REJECTED' && application.rejectedReason" class="mt-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-          <p class="text-sm text-red-700 dark:text-red-300"><strong>Motivo da rejeição:</strong> {{ application.rejectedReason }}</p>
+        <div v-if="application.status === 'REJECTED'" class="mt-4 space-y-4">
+          <div v-if="application.rejectedReason" class="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+            <p class="text-sm text-red-700 dark:text-red-300"><strong>Motivo da rejeição:</strong> {{ application.rejectedReason }}</p>
+          </div>
+          <UButton color="primary" label="Reenviar candidatura" @click="startResubmit" />
         </div>
       </div>
     </div>
@@ -78,22 +85,20 @@
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 
 definePageMeta({
   middleware: 'auth',
 })
 
 const { user } = useAuth()
-const { apiGet, apiPost } = useApi()
-const toast = useToast()
-const queryClient = useQueryClient()
 
-const { data: application, isLoading } = useQuery({
-  queryKey: ['my-application'],
-  queryFn: () => apiGet('/auth/my-application'),
-  retry: false,
-})
+const { data: application, isLoading } = useMyOrganizerApplicationQuery()
+const submitMutation = useSubmitOrganizerApplicationMutation()
+
+const isOrganizer = computed(
+  () => user.value?.role === 'ORGANIZER' || user.value?.role === 'ADMIN',
+)
+const resubmitting = ref(false)
 
 const schema = toTypedSchema(
   z.object({
@@ -103,7 +108,7 @@ const schema = toTypedSchema(
   }),
 )
 
-const { handleSubmit, errors, defineField } = useForm({
+const { handleSubmit, errors, defineField, setValues } = useForm({
   validationSchema: schema,
   initialValues: {
     legalName: '',
@@ -116,32 +121,27 @@ const [legalName] = defineField('legalName')
 const [tradeName] = defineField('tradeName')
 const [document] = defineField('document')
 
-const submitMutation = useMutation({
-  mutationFn: (data: { legalName: string; tradeName?: string; document: string }) =>
-    apiPost('/auth/register', {
-      name: user.value?.name || '',
-      email: user.value?.email || '',
-      password: 'placeholder', // Backend ignores this for existing users
-      role: 'ORGANIZER',
-      organizer: data,
-    }),
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ['my-application'] })
-    toast.add({ title: 'Candidatura enviada com sucesso!', color: 'success' })
-  },
-  onError: (error: any) => {
-    const msg = error?.data?.message || 'Erro ao enviar candidatura'
-    toast.add({ title: 'Erro', description: Array.isArray(msg) ? msg.join(', ') : msg, color: 'error' })
-  },
-})
-
 const isSubmitting = computed(() => submitMutation.isPending.value)
 
-const onSubmit = handleSubmit((formValues) => {
-  submitMutation.mutate({
-    legalName: formValues.legalName,
-    tradeName: formValues.tradeName || undefined,
-    document: formValues.document,
+function startResubmit() {
+  setValues({
+    legalName: application.value?.legalName || '',
+    tradeName: application.value?.tradeName || '',
+    document: application.value?.document || '',
   })
+  resubmitting.value = true
+}
+
+const onSubmit = handleSubmit(async (formValues) => {
+  try {
+    await submitMutation.submit({
+      legalName: formValues.legalName,
+      tradeName: formValues.tradeName || undefined,
+      document: formValues.document,
+    })
+    resubmitting.value = false
+  } catch {
+    // Errors are surfaced by the mutation toast
+  }
 })
 </script>

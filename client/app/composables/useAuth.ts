@@ -1,5 +1,5 @@
 import { useAuthStore } from '~/stores/auth';
-import type { LoginInput, RegisterInput, AuthResponse } from '~/types/api';
+import type { LoginInput, RegisterInput, AuthResponse, User } from '~/types/api';
 
 export function useAuth() {
   const authStore = useAuthStore();
@@ -52,8 +52,14 @@ export function useAuth() {
         response.user,
       );
       toast.add({ title: 'Conta criada com sucesso!', color: 'success' });
-      const redirect = (route.query.redirect as string) || '/';
-      router.push(redirect);
+      const redirect = route.query.redirect as string | undefined;
+      if (redirect) {
+        router.push(redirect);
+      } else if (input.role === 'ORGANIZER') {
+        router.push('/minha-conta/organizador');
+      } else {
+        router.push('/');
+      }
     } catch (error: unknown) {
       const message = getErrorMessage(error, 'Erro ao criar conta');
       toast.add({
@@ -84,6 +90,32 @@ export function useAuth() {
     }
   }
 
+  async function refreshUser() {
+    if (!authStore.token) return;
+    try {
+      const headers = { Authorization: `Bearer ${authStore.token}` };
+      const fresh = await $fetch<User>(`${baseURL}/auth/me`, { headers });
+
+      if (
+        fresh.role !== authStore.user?.role &&
+        authStore.refreshToken
+      ) {
+        const tokens = await $fetch<{
+          accessToken: string;
+          refreshToken: string;
+        }>(`${baseURL}/auth/refresh`, {
+          method: 'POST',
+          body: { refreshToken: authStore.refreshToken },
+        });
+        authStore.setSession(tokens.accessToken, tokens.refreshToken, fresh);
+      } else {
+        authStore.setUser(fresh);
+      }
+    } catch {
+      // Keep the current session if the refresh fails
+    }
+  }
+
   return {
     user: computed(() => authStore.user),
     isAuthenticated: computed(() => authStore.isAuthenticated),
@@ -91,6 +123,7 @@ export function useAuth() {
     login,
     register,
     logout,
+    refreshUser,
   };
 }
 

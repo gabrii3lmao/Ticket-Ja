@@ -12,4 +12,10 @@ import { useAuthStore } from '~/stores/auth';
 
 const authStore = useAuthStore();
 authStore.restoreSession();
+
+const { refreshUser } = useAuth();
+
+onMounted(() => {
+  refreshUser();
+});
 </script>

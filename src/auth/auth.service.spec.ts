@@ -7,7 +7,11 @@ jest.mock('bcrypt', () => ({
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UserService } from 'src/user/user.service';
 import { JwtService } from '@nestjs/jwt';
@@ -18,6 +22,8 @@ import * as bcrypt from 'bcrypt';
 const mockUserService = {
   findByEmail: jest.fn(),
   create: jest.fn(),
+  findOrganizerApplicationByUserId: jest.fn(),
+  ensureDocumentIsUnique: jest.fn(),
 };
 
 const mockJwtService = {
@@ -33,6 +39,13 @@ const mockRefreshTokenService = {
 const mockPrismaService = {
   user: {
     findUnique: jest.fn(),
+  },
+  organizerProfile: {
+    findUnique: jest.fn(),
+  },
+  organizerAplication: {
+    create: jest.fn(),
+    update: jest.fn(),
   },
 };
 
@@ -310,6 +323,134 @@ describe('AuthService', () => {
       expect(refreshTokenService.revokeRefreshToken).toHaveBeenCalledWith(
         'refresh-token',
       );
+    });
+  });
+
+  describe('me', () => {
+    it('should return the user without the password hash', async () => {
+      const user = {
+        id: 'user-id',
+        name: 'John',
+        email: 'john@mail.com',
+        passwordHash: 'hashed',
+        role: 'BUYER',
+      };
+      mockPrismaService.user.findUnique.mockResolvedValue(user);
+
+      const result = await service.me('user-id');
+
+      expect(result).toEqual({
+        id: 'user-id',
+        name: 'John',
+        email: 'john@mail.com',
+        role: 'BUYER',
+      });
+      expect(result).not.toHaveProperty('passwordHash');
+    });
+
+    it('should throw UnauthorizedException when user not found', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.me('missing')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+  });
+
+  describe('getMyOrganizerApplication', () => {
+    it('should delegate to the user service', async () => {
+      const application = { id: 'app-1', status: 'PENDING' };
+      mockUserService.findOrganizerApplicationByUserId.mockResolvedValue(
+        application,
+      );
+
+      const result = await service.getMyOrganizerApplication('user-id');
+
+      expect(
+        mockUserService.findOrganizerApplicationByUserId,
+      ).toHaveBeenCalledWith('user-id');
+      expect(result).toEqual(application);
+    });
+  });
+
+  describe('submitOrganizerApplication', () => {
+    const buyerUser = { id: 'user-id', role: 'BUYER' as const };
+    const dto = {
+      legalName: 'John Corp LTDA',
+      tradeName: 'John Corp',
+      document: '12345678000190',
+    };
+
+    it('should create a PENDING application when none exists', async () => {
+      const application = { id: 'app-1', ...dto, status: 'PENDING' };
+      mockPrismaService.organizerProfile.findUnique.mockResolvedValue(null);
+      mockUserService.findOrganizerApplicationByUserId.mockResolvedValue(null);
+      mockPrismaService.organizerAplication.create.mockResolvedValue(
+        application,
+      );
+
+      const result = await service.submitOrganizerApplication(buyerUser, dto);
+
+      expect(mockUserService.ensureDocumentIsUnique).toHaveBeenCalledWith(
+        dto.document,
+        buyerUser.id,
+      );
+      expect(mockPrismaService.organizerAplication.create).toHaveBeenCalled();
+      expect(result).toEqual(application);
+    });
+
+    it('should resubmit a REJECTED application back to PENDING', async () => {
+      const existing = { id: 'app-1', status: 'REJECTED' };
+      const updated = { ...existing, ...dto, status: 'PENDING' };
+      mockPrismaService.organizerProfile.findUnique.mockResolvedValue(null);
+      mockUserService.findOrganizerApplicationByUserId.mockResolvedValue(
+        existing,
+      );
+      mockPrismaService.organizerAplication.update.mockResolvedValue(updated);
+
+      const result = await service.submitOrganizerApplication(buyerUser, dto);
+
+      expect(mockPrismaService.organizerAplication.update).toHaveBeenCalledWith(
+        {
+          where: { userId: buyerUser.id },
+          data: expect.objectContaining({
+            status: 'PENDING',
+            rejectedReason: null,
+          }),
+        },
+      );
+      expect(result).toEqual(updated);
+    });
+
+    it('should reject when there is a PENDING application', async () => {
+      mockPrismaService.organizerProfile.findUnique.mockResolvedValue(null);
+      mockUserService.findOrganizerApplicationByUserId.mockResolvedValue({
+        id: 'app-1',
+        status: 'PENDING',
+      });
+
+      await expect(
+        service.submitOrganizerApplication(buyerUser, dto),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should reject when the user already has an organizer profile', async () => {
+      mockPrismaService.organizerProfile.findUnique.mockResolvedValue({
+        id: 'profile-1',
+      });
+
+      await expect(
+        service.submitOrganizerApplication(buyerUser, dto),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should reject when the user is not a buyer', async () => {
+      await expect(
+        service.submitOrganizerApplication(
+          { id: 'user-id', role: 'ORGANIZER' },
+          dto,
+        ),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

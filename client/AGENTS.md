@@ -46,6 +46,8 @@ yarn preview
 - `useAuthStore` persists `auth_token`, `auth_refresh_token`, `auth_user` cookies (7 days) and is restored in `app/app.vue`. `isAuthenticated` requires both token and user.
 - Protect pages with `definePageMeta({ middleware: 'auth' })`; role gates are `admin` and `organizer` middleware (both redirect to `/login` or `/`). Layouts: `default` and `admin`.
 - Checkout sends an `Idempotency-Key` header generated client-side; keep it stable per checkout attempt (`app/pages/checkout/index.vue`).
+- Accounts and organizer onboarding are separate: `/cadastro` toggles BUYER/ORGANIZER (the latter sends `role: 'ORGANIZER'` + `organizer` to `POST /auth/register`). Existing buyers apply via `/minha-conta/organizador`, which uses `useMyOrganizerApplicationQuery` (`GET /auth/organizer-application`) and `useSubmitOrganizerApplicationMutation` (`POST /auth/organizer-application`) — never re-register. A rejected application can be resubmitted.
+- `app.vue` calls `refreshUser()` on mount: it hits `GET /auth/me` and, when the DB role differs from the stored one (e.g. after admin approval), rotates the token via `POST /auth/refresh` so the new ORGANIZER role takes effect without a manual re-login.
 
 ## Style
 

@@ -146,6 +146,56 @@ Sign in and get tokens.
 
 ---
 
+### `GET /api/auth/me`
+
+Get the authenticated user, fresh from the database (used to pick up role changes).
+
+**Auth:** Bearer.
+
+**Response `200`:**
+```json
+{
+  "id": "user-uuid",
+  "name": "John Doe",
+  "email": "john@email.com",
+  "role": "BUYER",
+  "createdAt": "2026-01-01T00:00:00.000Z"
+}
+```
+
+---
+
+### `GET /api/auth/organizer-application`
+
+Get the authenticated user's organizer application, or `null` when there is none.
+
+**Auth:** Bearer.
+
+**Response `200`:** The application object or `null`.
+
+---
+
+### `POST /api/auth/organizer-application`
+
+Submit or resubmit an organizer application for the authenticated user. This reuses the existing account, so it never hits the email-uniqueness check. A `REJECTED` application is updated and moved back to `PENDING`.
+
+**Auth:** Bearer, `BUYER`.
+
+**Body:**
+```json
+{
+  "legalName": "My Company LTDA",
+  "tradeName": "My Events",
+  "document": "12345678000190"
+}
+```
+
+**Response `200`:** The created/updated `PENDING` application.
+
+**Errors:** `400` — not a buyer. `409` — application already under review, document already used, or account already an organizer.
+
+---
+
 ### `POST /api/auth/refresh`
 
 Refresh token pair.

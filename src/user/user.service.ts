@@ -66,6 +66,12 @@ export class UserService {
     return this.prisma.user.findUnique({ where: { id } });
   }
 
+  async findOrganizerApplicationByUserId(userId: string) {
+    return this.prisma.organizerAplication.findUnique({
+      where: { userId },
+    });
+  }
+
   async deleteUser(id: string): Promise<User | undefined> {
     const existingUser = await this.prisma.user.findUnique({ where: { id } });
     if (!existingUser) {
@@ -106,13 +112,16 @@ export class UserService {
     }
   }
 
-  private async ensureDocumentIsUnique(document: string) {
+  async ensureDocumentIsUnique(document: string, excludeUserId?: string) {
     const [application, profile] = await Promise.all([
       this.prisma.organizerAplication.findUnique({ where: { document } }),
       this.prisma.organizerProfile.findUnique({ where: { document } }),
     ]);
 
-    if (application || profile) {
+    const belongsToExcludedUser =
+      !!excludeUserId && application?.userId === excludeUserId;
+
+    if ((application && !belongsToExcludedUser) || profile) {
       throw new ConflictException('This document already has an account.');
     }
   }
