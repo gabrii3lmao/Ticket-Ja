@@ -22,16 +22,6 @@ src/
 └── common/         # Shared filters, pipes, and utilities
 ```
 
-**Key design decisions:**
-
-- **Global guards** — JWT authentication and role-based access are enforced globally via `APP_GUARD`. Routes opt-out with `@Public()`.
-- **Atomic stock control** — Order creation uses Prisma's atomic `decrement` with optimistic locking (`WHERE quantity >= requested`) to prevent overselling under concurrency.
-- **Manual payment confirmation** — Payments are verified manually by administrators through the admin panel. No external payment gateways are integrated.
-- **Reservation expiry** — Orders are created with a `reservedUntil` deadline; a scheduled job cancels expired `PENDING` orders and releases stock.
-- **Idempotent checkout** — `POST /order` accepts an `Idempotency-Key` header to avoid duplicate orders on retries.
-- **Cache layer** — Redis-backed cache on read-heavy endpoints (events, venues, categories) with per-method interceptor control.
-- **Rate limiting** — Multi-tier throttling (short/medium/long) via `@nestjs/throttler` with Redis storage, stricter limits on auth and order endpoints.
-
 ## Tech Stack
 
 | Layer | Technology |
@@ -131,19 +121,6 @@ client/app/
 ├── types/          api.ts, admin.ts, organizer.ts
 └── utils/          api.ts, format.ts, error.ts
 ```
-
-**Run it from `client/`:**
-
-```bash
-yarn install     # postinstall runs `nuxt prepare`
-yarn dev         # SPA on http://localhost:5173, proxies /api and /docs to :3000
-yarn generate    # static SPA -> .output/public
-yarn typecheck   # vue-tsc (no lint/test scripts)
-```
-
-The client talks to the API through `useApi()` (adds the bearer token and redirects to `/login` on 401). The base URL is `NUXT_PUBLIC_API_BASE` (default `/api`), and pages are protected with the `auth`, `admin` and `organizer` route middleware. In production the root `Dockerfile` builds the SPA in its `client-builder` stage (`yarn generate`) and copies `.output/public` into the API image's `public/`, where NestJS serves it via `ServeStaticModule`.
-
-See [`client/README.md`](client/README.md) and [`client/AGENTS.md`](client/AGENTS.md) for full conventions.
 
 ## Seed Data
 
