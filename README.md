@@ -4,142 +4,23 @@ RESTful API for event ticket sales built with **NestJS 11**, **Prisma 7**, **Pos
 
 ## Architecture
 
-**Modular monolith**: a Nuxt SPA talks to a NestJS REST API; PostgreSQL is the source of truth and Redis handles cache/rate limiting.
+The project follows a **modular monolith** architecture with clear domain boundaries:
 
-### System overview
-
-```mermaid
-flowchart TB
-    SPA["Nuxt 4 SPA (client/)<br/>Pinia · TanStack Query"]
-
-    subgraph API["NestJS 11 API — port 3000"]
-        GW["HTTP layer<br/>prefix /api · Helmet · Swagger /docs"]
-        GUARDS["Global guards<br/>JwtAuthGuard → RolesGuard → ThrottlerGuard"]
-        MOD["Domain modules"]
-        CRON["@Cron order-expiration<br/>every minute"]
-    end
-
-    PG[("PostgreSQL 15<br/>Prisma 7")]
-    RD[("Redis 7.4<br/>cache · throttler storage")]
-
-    SPA -->|"REST + JWT"| GW --> GUARDS --> MOD
-    MOD --> PG
-    MOD --> RD
-    CRON --> PG
 ```
-
-### Order & payment lifecycle
-
-```mermaid
-stateDiagram-v2
-    direction LR
-    [*] --> PENDING : POST /api/orders<br/>stock reserved · reservedUntil = now + TTL
-    PENDING --> PAID : admin approves payment<br/>tickets issued (VALID)
-    PENDING --> CANCELED : reservation TTL expired<br/>(@Cron every minute)
-    PENDING --> CANCELED : payment rejected<br/>or buyer cancels
-    PAID --> [*]
-    CANCELED --> [*] : stock released
+src/
+├── auth/           # JWT authentication, guards, role-based access control
+├── user/           # User management
+├── venue/          # Venue CRUD with ownership validation
+├── event/          # Event lifecycle (DRAFT → PUBLISHED), ownership, pagination
+├── category/       # Ticket categories with pricing and stock control
+├── coupon/         # Event-scoped discount coupons
+├── order/          # Purchase flow with atomic stock reservation + reservation expiry job
+├── payment/        # Payment confirmation service (manual admin flow)
+├── ticket/         # QR code validation, usage tracking
+├── admin/          # Organizer application review + payment confirmation (ADMIN only)
+├── health/         # Health check endpoint (Prisma + Redis)
+└── common/         # Shared filters, pipes, and utilities
 ```
-
-`Payment` is 1:1 with the order: it starts `PENDING` and moves to `APPROVED` or `REJECTED` by admin confirmation — approval marks the order `PAID`, rejection cancels it. Tickets start `VALID` and move to `USED` on QR check-in (or `CANCELED` when the order is).
-
-### Database design
-
-```mermaid
-erDiagram
-    User ||--o{ Order : places
-    User ||--o{ Ticket : owns
-    User ||--o| OrganizerProfile : "has profile"
-    User ||--o| OrganizerAplication : submits
-    User ||--o{ RefreshToken : has
-    OrganizerProfile ||--o{ Venue : owns
-    OrganizerProfile ||--o{ Event : organizes
-    Venue ||--o{ Event : hosts
-    Event ||--o{ Category : "sells"
-    Event ||--o{ Coupon : offers
-    Event ||--o{ Ticket : "admits to"
-    Category ||--o{ OrderItem : "line items in"
-    Order ||--o{ OrderItem : contains
-    Order ||--|| Payment : settled_by
-    Order }o--o| Coupon : applies
-    OrderItem ||--o{ Ticket : generates
-
-    User {
-        string id PK
-        string email UK
-        string taxId UK
-        Role role
-    }
-    OrganizerProfile {
-        string document UK
-        string legalName
-    }
-    OrganizerAplication {
-        string document UK
-        OrganizerApplicationStatus status
-    }
-    Venue {
-        string city
-        string state
-        int capacity
-    }
-    Event {
-        EventStatus status
-        datetime startDate
-        string venueId FK
-        string organizerProfileId FK
-    }
-    Category {
-        decimal price
-        int quantity
-        datetime salesStart
-        datetime salesEnd
-    }
-    Order {
-        string idempotencyKey UK
-        decimal total
-        OrderStatus status
-        datetime reservedUntil
-        string couponId FK
-    }
-    OrderItem {
-        int quantity
-        decimal unitPrice
-        string categoryId FK
-    }
-    Ticket {
-        string qrCode UK
-        string code UK
-        TicketStatus status
-        datetime usedAt
-    }
-    Payment {
-        decimal amount
-        PaymentStatus status
-        datetime confirmedAt
-    }
-    Coupon {
-        string code UK
-        DiscountType discountType
-        decimal value
-        int maxUses
-        int currentUses
-    }
-    RefreshToken {
-        string token UK
-        datetime expiresAt
-    }
-```
-
-| Enum | Values |
-|------|--------|
-| `Role` | `BUYER` · `ORGANIZER` · `ADMIN` |
-| `EventStatus` | `DRAFT` · `PUBLISHED` · `FINISHED` · `CANCELED` |
-| `OrderStatus` | `PENDING` · `PAID` · `CANCELED` |
-| `PaymentStatus` | `PENDING` · `APPROVED` · `REJECTED` |
-| `TicketStatus` | `VALID` · `USED` · `CANCELED` |
-| `DiscountType` | `PERCENTAGE` · `FIXED` |
-| `OrganizerApplicationStatus` | `PENDING` · `APPROVED` · `REJECTED` |
 
 ## Tech Stack
 
@@ -240,6 +121,32 @@ client/app/
 ├── types/          api.ts, admin.ts, organizer.ts
 └── utils/          api.ts, format.ts, error.ts
 ```
+
+**Run it from `client/`:**
+
+```bash
+yarn install     # postinstall runs `nuxt prepare`
+yarn dev         # SPA on http://localhost:5173, proxies /api and /docs to :3000
+yarn generate    # static SPA -> .output/public
+yarn typecheck   # vue-tsc (no lint/test scripts)
+```
+
+The client talks to the API through `useApi()` (adds the bearer token and redirects to `/login` on 401). The base URL is `NUXT_PUBLIC_API_BASE` (default `/api`), and pages are protected with the `auth`, `admin` and `organizer` route middleware. In production the root `Dockerfile` builds the SPA in its `client-builder` stage (`yarn generate`) and copies `.output/public` into the API image's `public/`, where NestJS serves it via `ServeStaticModule`.
+
+See [`client/README.md`](client/README.md) and [`client/AGENTS.md`](client/AGENTS.md) for full conventions.
+
+## Seed Data
+
+The seed populates the database with realistic test data using Faker:
+
+- **Users** — 1 admin, 2 organizers (with profiles and approved applications), 7 buyers
+- **Venues** — 4 venues across Brazil (Arena São Paulo, Estádio Olímpico, Centro de Convenções, Teatro Municipal)
+- **Events** — 5 events (3 published, 2 draft) with mixed organizers and venues
+- **Categories** — 9 ticket categories across events (Pista, VIP, Arquibancada, Camarote, etc.) with varying prices and stock
+- **Coupons** — 3 coupons (percentage and fixed discounts, with expiry dates)
+- **Orders** — 8 orders in different states (PAID, PENDING, CANCELED) with corresponding payments (APPROVED, PENDING, REJECTED) and tickets
+
+Default credentials: `admin@email.com` / `organizer@email.com` / `maria@email.com` — password: `123456`
 
 ## Environment Variables
 
