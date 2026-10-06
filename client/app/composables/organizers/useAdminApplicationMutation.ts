@@ -4,6 +4,7 @@ import { useToast } from '#imports';
 export function useAdminApplicationMutation() {
   const queryClient = useQueryClient();
   const { apiPatch } = useApi();
+  const { notifyError } = useApiError();
   const toast = useToast();
 
   function invalidate() {
@@ -18,11 +19,7 @@ export function useAdminApplicationMutation() {
         toast.add({ title: 'Candidatura aprovada!', color: 'success' });
       })
       .catch((error) => {
-        toast.add({
-          title: 'Erro',
-          description: getErrorMessage(error, 'Erro ao aprovar candidatura'),
-          color: 'error',
-        });
+        notifyError(error, { title: 'Erro', fallback: 'Erro ao aprovar candidatura' });
         throw error;
       });
   }
@@ -36,11 +33,7 @@ export function useAdminApplicationMutation() {
         toast.add({ title: 'Candidatura rejeitada', color: 'warning' });
       })
       .catch((error) => {
-        toast.add({
-          title: 'Erro',
-          description: getErrorMessage(error, 'Erro ao rejeitar candidatura'),
-          color: 'error',
-        });
+        notifyError(error, { title: 'Erro', fallback: 'Erro ao rejeitar candidatura' });
         throw error;
       });
   }

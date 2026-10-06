@@ -4,6 +4,7 @@ import { useToast } from '#imports';
 export function useAdminPaymentMutation() {
   const queryClient = useQueryClient();
   const { apiPatch } = useApi();
+  const { notifyError } = useApiError();
   const toast = useToast();
 
   function confirm(id: string) {
@@ -14,11 +15,7 @@ export function useAdminPaymentMutation() {
         toast.add({ title: 'Pagamento confirmado!', color: 'success' });
       })
       .catch((error) => {
-        toast.add({
-          title: 'Erro',
-          description: getErrorMessage(error, 'Erro ao confirmar pagamento'),
-          color: 'error',
-        });
+        notifyError(error, { title: 'Erro', fallback: 'Erro ao confirmar pagamento' });
         throw error;
       });
   }
@@ -31,11 +28,7 @@ export function useAdminPaymentMutation() {
         toast.add({ title: 'Pagamento rejeitado', color: 'warning' });
       })
       .catch((error) => {
-        toast.add({
-          title: 'Erro',
-          description: getErrorMessage(error, 'Erro ao rejeitar pagamento'),
-          color: 'error',
-        });
+        notifyError(error, { title: 'Erro', fallback: 'Erro ao rejeitar pagamento' });
         throw error;
       });
   }

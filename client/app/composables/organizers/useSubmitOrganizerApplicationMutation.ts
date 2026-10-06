@@ -6,6 +6,7 @@ import type { OrganizerApplication } from '~/types/organizer';
 export function useSubmitOrganizerApplicationMutation() {
   const queryClient = useQueryClient();
   const { apiPost } = useApi();
+  const { notifyError } = useApiError();
   const toast = useToast();
   const isPending = ref(false);
 
@@ -20,11 +21,7 @@ export function useSubmitOrganizerApplicationMutation() {
       toast.add({ title: 'Candidatura enviada!', color: 'success' });
       return result;
     } catch (error) {
-      toast.add({
-        title: 'Erro',
-        description: getErrorMessage(error, 'Erro ao enviar candidatura'),
-        color: 'error',
-      });
+      notifyError(error, { title: 'Erro', fallback: 'Erro ao enviar candidatura' });
       throw error;
     } finally {
       isPending.value = false;

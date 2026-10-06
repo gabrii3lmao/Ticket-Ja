@@ -5,6 +5,7 @@ export function useAuth() {
   const authStore = useAuthStore();
   const config = useRuntimeConfig();
   const toast = useToast();
+  const { notifyError } = useApiError();
   const router = useRouter();
   const route = useRoute();
 
@@ -27,11 +28,9 @@ export function useAuth() {
       const redirect = (route.query.redirect as string) || '/';
       router.push(redirect);
     } catch (error: unknown) {
-      const message = getErrorMessage(error, 'Credenciais inválidas');
-      toast.add({
+      notifyError(error, {
         title: 'Erro ao fazer login',
-        description: message,
-        color: 'error',
+        fallback: 'Credenciais inválidas',
       });
       throw error;
     } finally {
@@ -61,11 +60,9 @@ export function useAuth() {
         router.push('/');
       }
     } catch (error: unknown) {
-      const message = getErrorMessage(error, 'Erro ao criar conta');
-      toast.add({
+      notifyError(error, {
         title: 'Erro ao criar conta',
-        description: message,
-        color: 'error',
+        fallback: 'Erro ao criar conta',
       });
       throw error;
     } finally {
@@ -125,29 +122,4 @@ export function useAuth() {
     logout,
     refreshUser,
   };
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (
-    error &&
-    typeof error === 'object' &&
-    'data' in error &&
-    error.data &&
-    typeof error.data === 'object'
-  ) {
-    const data = error.data as Record<string, unknown>;
-    if (typeof data.message === 'string') return data.message;
-    if (Array.isArray(data.message)) return data.message.join(', ');
-    if (
-      data.error &&
-      typeof data.error === 'object' &&
-      'message' in data.error
-    ) {
-      return String((data.error as Record<string, unknown>).message);
-    }
-  }
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return fallback;
 }

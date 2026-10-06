@@ -15,6 +15,7 @@ interface EventInput {
 export function useEventFormMutation() {
   const queryClient = useQueryClient()
   const { apiPost, apiPut, apiPatch, apiDel } = useApi()
+  const { notifyError } = useApiError()
   const toast = useToast()
   const isPending = ref(false)
 
@@ -30,7 +31,7 @@ export function useEventFormMutation() {
       toast.add({ title: 'Evento criado com sucesso!', color: 'success' })
       return result
     } catch (error) {
-      toast.add({ title: 'Erro', description: getErrorMessage(error, 'Erro ao criar evento'), color: 'error' })
+      notifyError(error, { title: 'Erro', fallback: 'Erro ao criar evento' })
       throw error
     } finally {
       isPending.value = false
@@ -45,7 +46,7 @@ export function useEventFormMutation() {
       queryClient.invalidateQueries({ queryKey: ['event', id] })
       toast.add({ title: 'Evento atualizado!', color: 'success' })
     } catch (error) {
-      toast.add({ title: 'Erro', description: getErrorMessage(error, 'Erro ao atualizar evento'), color: 'error' })
+      notifyError(error, { title: 'Erro', fallback: 'Erro ao atualizar evento' })
       throw error
     } finally {
       isPending.value = false
@@ -60,7 +61,7 @@ export function useEventFormMutation() {
       queryClient.invalidateQueries({ queryKey: ['event', id] })
       toast.add({ title: 'Status atualizado!', color: 'success' })
     } catch (error) {
-      toast.add({ title: 'Erro', description: getErrorMessage(error, 'Erro ao atualizar status'), color: 'error' })
+      notifyError(error, { title: 'Erro', fallback: 'Erro ao atualizar status' })
       throw error
     } finally {
       isPending.value = false
@@ -74,7 +75,7 @@ export function useEventFormMutation() {
       invalidate()
       toast.add({ title: 'Evento removido', color: 'info' })
     } catch (error) {
-      toast.add({ title: 'Erro', description: getErrorMessage(error, 'Erro ao remover evento'), color: 'error' })
+      notifyError(error, { title: 'Erro', fallback: 'Erro ao remover evento' })
       throw error
     } finally {
       isPending.value = false

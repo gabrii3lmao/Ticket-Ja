@@ -15,6 +15,7 @@ interface VenueInput {
 export function useVenueFormMutation() {
   const queryClient = useQueryClient();
   const { apiPost, apiPut, apiDel } = useApi();
+  const { notifyError } = useApiError();
   const toast = useToast();
   const isPending = ref(false);
 
@@ -30,11 +31,7 @@ export function useVenueFormMutation() {
       toast.add({ title: 'Local criado com sucesso!', color: 'success' });
       return result;
     } catch (error) {
-      toast.add({
-        title: 'Erro',
-        description: getErrorMessage(error, 'Erro ao criar local'),
-        color: 'error',
-      });
+      notifyError(error, { title: 'Erro', fallback: 'Erro ao criar local' });
       throw error;
     } finally {
       isPending.value = false;
@@ -48,11 +45,7 @@ export function useVenueFormMutation() {
       invalidate();
       toast.add({ title: 'Local atualizado!', color: 'success' });
     } catch (error) {
-      toast.add({
-        title: 'Erro',
-        description: getErrorMessage(error, 'Erro ao atualizar local'),
-        color: 'error',
-      });
+      notifyError(error, { title: 'Erro', fallback: 'Erro ao atualizar local' });
       throw error;
     } finally {
       isPending.value = false;
@@ -66,11 +59,7 @@ export function useVenueFormMutation() {
       invalidate();
       toast.add({ title: 'Local removido', color: 'info' });
     } catch (error) {
-      toast.add({
-        title: 'Erro',
-        description: getErrorMessage(error, 'Erro ao remover local'),
-        color: 'error',
-      });
+      notifyError(error, { title: 'Erro', fallback: 'Erro ao remover local' });
       throw error;
     } finally {
       isPending.value = false;

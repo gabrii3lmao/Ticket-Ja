@@ -15,7 +15,7 @@
     </div>
 
     <UModal v-model:open="mobileMenuOpen" title="Menu">
-      <template #default>
+      <template #body>
         <nav class="space-y-1 p-4">
           <NuxtLink
             v-for="item in visibleItems"

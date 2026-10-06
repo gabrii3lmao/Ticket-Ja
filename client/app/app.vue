@@ -1,10 +1,10 @@
 <template>
-  <div>
+  <UApp :toaster="{ position: 'top-right', duration: 5000 }">
     <NuxtRouteAnnouncer />
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
-  </div>
+  </UApp>
 </template>
 
 <script setup lang="ts">

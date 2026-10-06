@@ -5,6 +5,7 @@ import type { CategoryInput } from '~/types/api'
 export function useCategoryFormMutation(eventId: Ref<string>) {
   const queryClient = useQueryClient()
   const { apiPost, apiPatch, apiDel } = useApi()
+  const { notifyError } = useApiError()
   const toast = useToast()
   const isPending = ref(false)
 
@@ -21,7 +22,7 @@ export function useCategoryFormMutation(eventId: Ref<string>) {
       invalidate()
       toast.add({ title: 'Categoria criada!', color: 'success' })
     } catch (error) {
-      toast.add({ title: 'Erro', description: getErrorMessage(error, 'Erro ao criar categoria'), color: 'error' })
+      notifyError(error, { title: 'Erro', fallback: 'Erro ao criar categoria' })
       throw error
     } finally {
       isPending.value = false
@@ -35,7 +36,7 @@ export function useCategoryFormMutation(eventId: Ref<string>) {
       invalidate()
       toast.add({ title: 'Categoria atualizada!', color: 'success' })
     } catch (error) {
-      toast.add({ title: 'Erro', description: getErrorMessage(error, 'Erro ao atualizar categoria'), color: 'error' })
+      notifyError(error, { title: 'Erro', fallback: 'Erro ao atualizar categoria' })
       throw error
     } finally {
       isPending.value = false
@@ -49,7 +50,7 @@ export function useCategoryFormMutation(eventId: Ref<string>) {
       invalidate()
       toast.add({ title: 'Categoria removida', color: 'info' })
     } catch (error) {
-      toast.add({ title: 'Erro', description: getErrorMessage(error, 'Erro ao remover categoria'), color: 'error' })
+      notifyError(error, { title: 'Erro', fallback: 'Erro ao remover categoria' })
       throw error
     } finally {
       isPending.value = false
