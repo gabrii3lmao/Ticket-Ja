@@ -1,4 +1,5 @@
 import { ModuleMetadata } from '@nestjs/common';
+import { CacheModule } from '@nestjs/cache-manager';
 import { ConfigModule } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaModule } from 'src/prisma.module';
@@ -20,6 +21,10 @@ export async function createIntegrationModule(
   const moduleRef = await Test.createTestingModule({
     imports: [
       ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true }),
+      // Feature controllers use CacheInterceptor for public read endpoints.
+      // The integration suites exercise services directly and only need an
+      // in-memory cache provider to compile those modules.
+      CacheModule.register({ isGlobal: true }),
       PrismaModule,
       ...imports,
     ],
