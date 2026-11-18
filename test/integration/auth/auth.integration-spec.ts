@@ -9,15 +9,15 @@ import { AuthModule } from 'src/auth/auth.module';
 import { AuthService } from 'src/auth/auth.service';
 import { RefreshTokenService } from 'src/auth/refresh-token.service';
 import { PrismaService } from 'src/prisma.service';
-import { resetDatabase } from './setup/database';
+import { resetDatabase } from '../setup/database';
 import {
   TEST_PASSWORD,
   createBuyer,
   createOrganizer,
   createOrganizerApplication,
   randomDocument,
-} from './support/factories';
-import { createIntegrationModule } from './support/test-module';
+} from '../support/factories';
+import { createIntegrationModule } from '../support/test-module';
 
 describe('AuthService (integration)', () => {
   let service: AuthService;

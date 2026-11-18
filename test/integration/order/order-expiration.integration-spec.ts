@@ -1,7 +1,7 @@
 import { OrderModule } from 'src/order/order.module';
 import { OrderExpirationService } from 'src/order/order-expiration/order-expiration.service';
 import { PrismaService } from 'src/prisma.service';
-import { resetDatabase } from './setup/database';
+import { resetDatabase } from '../setup/database';
 import {
   createBuyer,
   createCategory,
@@ -12,8 +12,8 @@ import {
   createPayment,
   createTicket,
   createVenue,
-} from './support/factories';
-import { createIntegrationModule } from './support/test-module';
+} from '../support/factories';
+import { createIntegrationModule } from '../support/test-module';
 
 const MINUTE = 60 * 1000;
 

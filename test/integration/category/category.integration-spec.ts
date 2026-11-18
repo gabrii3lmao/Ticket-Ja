@@ -6,7 +6,7 @@ import {
 import { CategoryModule } from 'src/category/category.module';
 import { CategoryService } from 'src/category/category.service';
 import { PrismaService } from 'src/prisma.service';
-import { resetDatabase } from './setup/database';
+import { resetDatabase } from '../setup/database';
 import {
   createBuyer,
   createCategory,
@@ -15,8 +15,8 @@ import {
   createOrderItem,
   createOrganizer,
   createVenue,
-} from './support/factories';
-import { createIntegrationModule } from './support/test-module';
+} from '../support/factories';
+import { createIntegrationModule } from '../support/test-module';
 
 const DAY = 24 * 60 * 60 * 1000;
 

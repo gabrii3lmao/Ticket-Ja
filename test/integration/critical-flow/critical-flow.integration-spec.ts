@@ -17,7 +17,7 @@ import { TicketModule } from 'src/ticket/ticket.module';
 import { TicketService } from 'src/ticket/ticket.service';
 import { VenueModule } from 'src/venue/venue.module';
 import { VenueService } from 'src/venue/venue.service';
-import { resetDatabase } from './setup/database';
+import { resetDatabase } from '../setup/database';
 import {
   TEST_PASSWORD,
   createBuyer,
@@ -27,8 +27,8 @@ import {
   createOrganizer,
   createVenue,
   randomDocument,
-} from './support/factories';
-import { createIntegrationModule } from './support/test-module';
+} from '../support/factories';
+import { createIntegrationModule } from '../support/test-module';
 
 const DAY = 24 * 60 * 60 * 1000;
 const MINUTE = 60 * 1000;

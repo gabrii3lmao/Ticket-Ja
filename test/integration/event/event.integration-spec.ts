@@ -6,15 +6,15 @@ import {
 import { EventModule } from 'src/event/event.module';
 import { EventService } from 'src/event/event.service';
 import { PrismaService } from 'src/prisma.service';
-import { resetDatabase } from './setup/database';
+import { resetDatabase } from '../setup/database';
 import {
   createBuyer,
   createCategory,
   createEvent,
   createOrganizer,
   createVenue,
-} from './support/factories';
-import { createIntegrationModule } from './support/test-module';
+} from '../support/factories';
+import { createIntegrationModule } from '../support/test-module';
 
 const DAY = 24 * 60 * 60 * 1000;
 

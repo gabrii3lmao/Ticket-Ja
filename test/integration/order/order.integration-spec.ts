@@ -5,7 +5,7 @@ import { EventStatus } from 'generated/prisma/enums';
 import { OrderModule } from 'src/order/order.module';
 import { OrderService } from 'src/order/order.service';
 import { PrismaService } from 'src/prisma.service';
-import { resetDatabase } from './setup/database';
+import { resetDatabase } from '../setup/database';
 import {
   createBuyer,
   createCategory,
@@ -13,8 +13,8 @@ import {
   createEvent,
   createOrganizer,
   createVenue,
-} from './support/factories';
-import { createIntegrationModule } from './support/test-module';
+} from '../support/factories';
+import { createIntegrationModule } from '../support/test-module';
 
 const MINUTE = 60 * 1000;
 const DAY = 24 * 60 * 60 * 1000;

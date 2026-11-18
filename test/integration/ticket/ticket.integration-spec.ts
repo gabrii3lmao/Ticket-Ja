@@ -7,7 +7,7 @@ import { PrismaService } from 'src/prisma.service';
 import { TicketModule } from 'src/ticket/ticket.module';
 import { TicketService } from 'src/ticket/ticket.service';
 import { EventStatus, TicketStatus } from 'generated/prisma/enums';
-import { resetDatabase } from './setup/database';
+import { resetDatabase } from '../setup/database';
 import {
   createBuyer,
   createCategory,
@@ -17,8 +17,8 @@ import {
   createOrganizer,
   createTicket,
   createVenue,
-} from './support/factories';
-import { createIntegrationModule } from './support/test-module';
+} from '../support/factories';
+import { createIntegrationModule } from '../support/test-module';
 
 describe('TicketService (integration)', () => {
   let service: TicketService;

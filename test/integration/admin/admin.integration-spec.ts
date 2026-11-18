@@ -2,7 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { AdminModule } from 'src/admin/admin.module';
 import { AdminService } from 'src/admin/admin.service';
 import { PrismaService } from 'src/prisma.service';
-import { resetDatabase } from './setup/database';
+import { resetDatabase } from '../setup/database';
 import {
   createBuyer,
   createCategory,
@@ -15,8 +15,8 @@ import {
   createTicket,
   createVenue,
   randomDocument,
-} from './support/factories';
-import { createIntegrationModule } from './support/test-module';
+} from '../support/factories';
+import { createIntegrationModule } from '../support/test-module';
 
 describe('AdminService (integration)', () => {
   let service: AdminService;

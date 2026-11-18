@@ -6,7 +6,7 @@ import {
 import { PrismaService } from 'src/prisma.service';
 import { VenueModule } from 'src/venue/venue.module';
 import { VenueService } from 'src/venue/venue.service';
-import { resetDatabase } from './setup/database';
+import { resetDatabase } from '../setup/database';
 import {
   createBuyer,
   createCategory,
@@ -15,8 +15,8 @@ import {
   createOrderItem,
   createOrganizer,
   createVenue,
-} from './support/factories';
-import { createIntegrationModule } from './support/test-module';
+} from '../support/factories';
+import { createIntegrationModule } from '../support/test-module';
 
 describe('VenueService (integration)', () => {
   let service: VenueService;

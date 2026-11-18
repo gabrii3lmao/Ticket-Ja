@@ -6,7 +6,7 @@ import {
 import { CouponModule } from 'src/coupon/coupon.module';
 import { CouponService } from 'src/coupon/coupon.service';
 import { PrismaService } from 'src/prisma.service';
-import { resetDatabase } from './setup/database';
+import { resetDatabase } from '../setup/database';
 import {
   createBuyer,
   createCoupon,
@@ -14,8 +14,8 @@ import {
   createOrganizer,
   createVenue,
   randomDocument,
-} from './support/factories';
-import { createIntegrationModule } from './support/test-module';
+} from '../support/factories';
+import { createIntegrationModule } from '../support/test-module';
 
 describe('CouponService (integration)', () => {
   let service: CouponService;

@@ -7,7 +7,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from 'src/prisma.service';
 import { UserModule } from 'src/user/user.module';
 import { UserService } from 'src/user/user.service';
-import { resetDatabase } from './setup/database';
+import { resetDatabase } from '../setup/database';
 import {
   TEST_PASSWORD,
   createBuyer,
@@ -15,8 +15,8 @@ import {
   createOrder,
   createOrganizer,
   createVenue,
-} from './support/factories';
-import { createIntegrationModule } from './support/test-module';
+} from '../support/factories';
+import { createIntegrationModule } from '../support/test-module';
 
 describe('UserService (integration)', () => {
   let service: UserService;

@@ -1,6 +1,6 @@
 import { PrismaService } from 'src/prisma.service';
-import { resetDatabase } from './setup/database';
-import { createIntegrationModule } from './support/test-module';
+import { resetDatabase } from '../setup/database';
+import { createIntegrationModule } from '../support/test-module';
 
 describe('Integration database', () => {
   let prisma: PrismaService;

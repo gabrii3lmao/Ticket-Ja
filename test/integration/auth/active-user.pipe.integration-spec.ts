@@ -2,9 +2,9 @@ import { NotFoundException } from '@nestjs/common';
 import { AuthModule } from 'src/auth/auth.module';
 import { ActiveUserPipe } from 'src/auth/pipes/active-user.pipe';
 import { PrismaService } from 'src/prisma.service';
-import { resetDatabase } from './setup/database';
-import { createBuyer } from './support/factories';
-import { createIntegrationModule } from './support/test-module';
+import { resetDatabase } from '../setup/database';
+import { createBuyer } from '../support/factories';
+import { createIntegrationModule } from '../support/test-module';
 
 describe('ActiveUserPipe (integration)', () => {
   let pipe: ActiveUserPipe;
