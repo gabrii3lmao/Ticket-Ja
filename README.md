@@ -61,6 +61,7 @@ cd Ticket-Ja
 ```bash
 corepack enable
 yarn install
+yarn --cwd client install
 ```
 
 ### 3. Configure environment variables
@@ -85,22 +86,23 @@ yarn prisma migrate deploy  # apply migrations
 yarn prisma db seed         # load seed data
 ```
 
-### 6. Run the API
+### 6. Run the API and frontend
 
 ```bash
-yarn start:dev
+yarn dev
 ```
 
-The API runs at `http://localhost:3000`. Swagger docs are available at `http://localhost:3000/docs` (disabled in production).
+This starts both processes in parallel with prefixed logs:
 
-### 7. Run the frontend (client)
+- API: `http://localhost:3000`
+- Swagger docs: `http://localhost:3000/docs` (disabled in production)
+- Frontend SPA: `http://localhost:5173`, proxying `/api` and `/docs` to `:3000`
 
-In a second terminal:
+`Ctrl+C` stops both processes. To run them separately:
 
 ```bash
-cd client
-yarn install     # postinstall runs `nuxt prepare`
-yarn dev         # SPA on http://localhost:5173, proxies /api and /docs to :3000
+yarn start:dev          # API only
+yarn --cwd client dev   # frontend only
 ```
 
 ## Frontend
