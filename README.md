@@ -38,7 +38,7 @@ src/
 | UI | Nuxt UI v4 + Tailwind v4 |
 | Client state | Pinia |
 | Client data / forms | TanStack Vue Query (`@peterbud/nuxt-query`) + vee-validate/Zod |
-| Testing | Jest 30 (unit) + Supertest (e2e) |
+| Testing | Jest 30 (unit) + Testcontainers/PostgreSQL (integration) |
 | Container | Docker multi-stage + Docker Compose |
 
 ## Quick Start
@@ -165,13 +165,23 @@ ORDER_RESERVATION_TTL_MINUTES=   # PENDING order reservation TTL (default 15)
 ```bash
 yarn start:dev       # Dev server with watch
 yarn start:prod      # Production build
-yarn test            # Unit tests
-yarn test:e2e        # E2E tests (requires running DB)
+yarn test            # Unit tests (no external dependencies)
+yarn test:integration # Integration tests (starts a disposable PostgreSQL container)
+yarn test:all        # Unit + integration tests
 yarn test:cov        # Coverage report
 yarn lint            # ESLint with type-aware rules
 yarn build           # Production build
 yarn prisma studio    # Database browser
 yarn prisma db seed   # Seed database
+```
+
+The integration suite starts its own PostgreSQL container and applies the
+Prisma migrations automatically, so it never touches the database configured
+in `.env`. Docker is used by default. On rootless Podman, make sure the user
+socket is running before executing the suite:
+
+```bash
+systemctl --user start podman.socket
 ```
 
 ## Documentation
