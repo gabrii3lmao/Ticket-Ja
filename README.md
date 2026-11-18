@@ -184,6 +184,20 @@ socket is running before executing the suite:
 systemctl --user start podman.socket
 ```
 
+### Test strategy
+
+Integration suites exercise the service layer against real PostgreSQL and
+Prisma: users, auth and refresh tokens, organizer onboarding, events, venues,
+categories, coupons, orders (stock, coupons, idempotency, concurrency and
+reservation TTL) and ticket validation. A cross-module critical-flow suite
+covers onboarding → approval → publishing → checkout → payment confirmation →
+ticket use, plus payment rejection and reservation expiry. Pure or
+cross-cutting logic (guards, exception filters and health indicators) is
+covered by fast unit tests.
+
+Behavioral gaps found while writing the suites are documented as
+`it.todo(...)` in the relevant spec instead of asserting incorrect behavior.
+
 ## Documentation
 
 - [`docs/API.md`](docs/API.md) — full endpoint reference with request/response examples.
